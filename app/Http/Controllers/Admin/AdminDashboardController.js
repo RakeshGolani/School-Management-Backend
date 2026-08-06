@@ -13,6 +13,7 @@ class AdminDashboardController extends BaseController {
     // Bind methods to preserve 'this' context from BaseController
     this.index = this.index.bind(this);
     this.login = this.login.bind(this);
+    this.updateProfile = this.updateProfile.bind(this);
   }
 
   /**
@@ -86,6 +87,65 @@ class AdminDashboardController extends BaseController {
     } catch (error) {
       console.error('Error during admin login:', error);
       return this.sendError(res, 'Internal server error during authentication', 500);
+    }
+  }
+
+  /**
+   * Update Admin Profile details
+   */
+  async updateProfile(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, email, phone, password } = req.body;
+
+      const admin = await Admin.findByPk(id);
+      if (!admin) {
+        return this.sendError(res, 'Admin account not found', 404);
+      }
+
+      // Check if email is being updated and is already taken
+      if (email && email !== admin.email) {
+        const existingEmail = await Admin.findOne({ where: { email } });
+        if (existingEmail) {
+          return this.sendError(res, 'Email address is already in use by another admin', 400);
+        }
+        admin.email = email;
+      }
+
+      if (name) admin.name = name;
+      if (phone !== undefined) admin.phone = phone;
+
+      if (password && password.trim() !== '') {
+        if (!req.body.currentPassword) {
+          return this.sendError(res, 'Current password is required to change password', 400);
+        }
+        const isPasswordMatch = await bcrypt.compare(req.body.currentPassword, admin.password);
+        if (!isPasswordMatch) {
+          return this.sendError(res, 'Current password is incorrect', 400);
+        }
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        admin.password = await bcrypt.hash(password, salt);
+      }
+
+      await admin.save();
+
+      return this.sendResponse(
+        res,
+        {
+          user: {
+            id: admin.id,
+            name: admin.name,
+            email: admin.email,
+            phone: admin.phone,
+            role: 'admin'
+          }
+        },
+        'Admin profile updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating admin profile:', error);
+      return this.sendError(res, 'Internal server error updating profile', 500);
     }
   }
 }

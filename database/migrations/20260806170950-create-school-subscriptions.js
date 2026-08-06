@@ -1,0 +1,75 @@
+'use strict';
+
+module.exports = {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('school_subscriptions', {
+      id: {
+        type: Sequelize.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      school_id: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'schools',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
+      plan_type: {
+        type: Sequelize.ENUM('monthly', 'yearly'),
+        allowNull: false,
+        defaultValue: 'monthly'
+      },
+      status: {
+        type: Sequelize.ENUM('active', 'trialing', 'past_due', 'unpaid', 'cancelled'),
+        allowNull: false,
+        defaultValue: 'trialing'
+      },
+      max_students_limit: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 50
+      },
+      max_buses_limit: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 2
+      },
+      starts_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      ends_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      gateway_customer_id: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      gateway_subscription_id: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      createdAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      updatedAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+      },
+      deletedAt: {
+        type: Sequelize.DATE,
+        allowNull: true
+      }
+    });
+  },
+
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable('school_subscriptions');
+  }
+};

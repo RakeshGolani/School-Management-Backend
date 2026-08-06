@@ -19,6 +19,9 @@ router.post('/', uploadStudentPhoto, StoreStudentRequest.rules(), StudentControl
 // Update Student Profile
 router.put('/:id', uploadStudentPhoto, UpdateStudentRequest.rules(), StudentController.update);
 
+// Toggle Student Status
+router.put('/:id/status', StudentController.toggleStatus);
+
 // Delete Student Record
 router.delete('/:id', StudentController.destroy);
 

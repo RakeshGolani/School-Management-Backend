@@ -9,6 +9,10 @@ const BusStop = require('./BusStop');
 const Bus = require('./Bus');
 const AttendanceLog = require('./AttendanceLog');
 const BusAttendanceLog = require('./BusAttendanceLog');
+const BillingSetting = require('./BillingSetting');
+const SchoolSubscription = require('./SchoolSubscription');
+const SubscriptionTransaction = require('./SubscriptionTransaction');
+const SchoolInvoice = require('./SchoolInvoice');
 
 // 1. Parent - Student Relationships
 Parent.hasMany(Student, { foreignKey: 'parent_id', as: 'children' });
@@ -51,6 +55,22 @@ BusAttendanceLog.belongsTo(BusRoute, { foreignKey: 'route_id', as: 'route' });
 BusStop.hasMany(BusAttendanceLog, { foreignKey: 'stop_id', as: 'scanLogs' });
 BusAttendanceLog.belongsTo(BusStop, { foreignKey: 'stop_id', as: 'stop' });
 
+// 10. Billing and Subscription Relationships
+School.hasOne(SchoolSubscription, { foreignKey: 'school_id', as: 'subscription' });
+SchoolSubscription.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+School.hasMany(SubscriptionTransaction, { foreignKey: 'school_id', as: 'transactions' });
+SubscriptionTransaction.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+School.hasMany(SchoolInvoice, { foreignKey: 'school_id', as: 'invoices' });
+SchoolInvoice.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+SchoolSubscription.hasMany(SubscriptionTransaction, { foreignKey: 'subscription_id', as: 'transactions' });
+SubscriptionTransaction.belongsTo(SchoolSubscription, { foreignKey: 'subscription_id', as: 'subscription' });
+
+SubscriptionTransaction.hasOne(SchoolInvoice, { foreignKey: 'transaction_id', as: 'invoice' });
+SchoolInvoice.belongsTo(SubscriptionTransaction, { foreignKey: 'transaction_id', as: 'transaction' });
+
 module.exports = {
   sequelize,
   School,
@@ -62,5 +82,9 @@ module.exports = {
   BusStop,
   Bus,
   AttendanceLog,
-  BusAttendanceLog
+  BusAttendanceLog,
+  BillingSetting,
+  SchoolSubscription,
+  SubscriptionTransaction,
+  SchoolInvoice
 };

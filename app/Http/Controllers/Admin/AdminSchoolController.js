@@ -1,5 +1,5 @@
 const { validationResult } = require('express-validator');
-const School = require('../../../models/School');
+const { School } = require("../../../Models");
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const emailService = require('../../../../utils/EmailService');

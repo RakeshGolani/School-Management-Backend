@@ -6,10 +6,10 @@ const { removeFile } = require('../../../../utils/UploadUtils');
 const bcrypt = require('bcrypt');
 
 /**
- * StudentController
- * Handles student admissions, profile management, NFC card assignment, bus subscriptions, and photo uploads.
+ * AdminStudentController
+ * Handles student admissions, profile management, NFC card assignment, bus subscriptions, and photo uploads by admins.
  */
-class StudentController extends BaseController {
+class AdminStudentController extends BaseController {
   constructor() {
     super();
     this.index = this.index.bind(this);
@@ -392,4 +392,4 @@ class StudentController extends BaseController {
   }
 }
 
-module.exports = new StudentController();
+module.exports = new AdminStudentController();

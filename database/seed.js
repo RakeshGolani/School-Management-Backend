@@ -9,7 +9,9 @@ const {
   BusStop, 
   Bus, 
   AttendanceLog, 
-  BusAttendanceLog 
+  BusAttendanceLog,
+  BillingSetting,
+  SchoolSubscription
 } = require('../app/Models');
 const bcrypt = require('bcryptjs');
 
@@ -39,6 +41,34 @@ async function seedDatabase() {
       name: 'System Admin',
       email: 'admin@school.com',
       password: defaultPassword
+    });
+
+    // 2.1 Seed Default Billing Settings
+    console.log('Seeding Billing Settings...');
+    await BillingSetting.create({
+      base_fee_monthly: 1000.00,
+      base_fee_yearly: 10000.00,
+      student_fee_monthly: 10.00,
+      student_fee_yearly: 100.00,
+      bus_fee_monthly: 100.00,
+      bus_fee_yearly: 1000.00,
+      yearly_discount_percent: 15.00,
+      tax_rate_percent: 18.00
+    });
+
+    // 2.2 Seed Default Subscription for Greenwood School
+    console.log('Seeding School Subscription...');
+    const startsAt = new Date();
+    const endsAt = new Date();
+    endsAt.setDate(startsAt.getDate() + 30); // 30 days from now
+    await SchoolSubscription.create({
+      school_id: school.id,
+      plan_type: 'monthly',
+      status: 'active',
+      max_students_limit: 50,
+      max_buses_limit: 5,
+      starts_at: startsAt,
+      ends_at: endsAt
     });
 
     // 3. Create Class Teachers

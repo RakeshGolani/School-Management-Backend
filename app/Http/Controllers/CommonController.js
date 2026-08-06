@@ -1,4 +1,4 @@
-const CommonService = require('../services/CommonService');
+const CommonService = require('../../Services/CommonService');
 
 class CommonController {
   static async updateStatus(req, res) {

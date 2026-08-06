@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ApiResponse = require('../app/Traits/ApiResponse');
+const SubscriptionCheckMiddleware = require('../app/Http/Middleware/SubscriptionCheckMiddleware');
 
 const schoolRoutes = require('./school');
 const adminRoutes = require('./admin');
@@ -9,13 +10,13 @@ const studentRoutes = require('./student');
 const commonRoutes = require('./commonRoutes');
 
 // Group routes
-router.use('/school', schoolRoutes);
-router.use('/admin', adminRoutes);
-router.use('/teacher', teacherRoutes);
-router.use('/teachers', teacherRoutes);
-router.use('/student', studentRoutes);
-router.use('/students', studentRoutes);
-router.use('/common', commonRoutes);
+router.use('/school', SubscriptionCheckMiddleware, schoolRoutes);
+router.use('/admin', adminRoutes); // Super admin is exempt
+router.use('/teacher', SubscriptionCheckMiddleware, teacherRoutes);
+router.use('/teachers', SubscriptionCheckMiddleware, teacherRoutes);
+router.use('/student', SubscriptionCheckMiddleware, studentRoutes);
+router.use('/students', SubscriptionCheckMiddleware, studentRoutes);
+router.use('/common', SubscriptionCheckMiddleware, commonRoutes);
 
 // General health check
 router.get('/health', (req, res) => {

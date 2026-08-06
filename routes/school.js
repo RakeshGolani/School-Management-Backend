@@ -6,6 +6,7 @@ const SchoolRegisterRequest = require('../app/Http/Requests/School/SchoolRegiste
 
 const SchoolUpdateProfileRequest = require('../app/Http/Requests/School/SchoolUpdateProfileRequest');
 const SchoolChangePasswordRequest = require('../app/Http/Requests/School/SchoolChangePasswordRequest');
+const SubscriptionController = require('../app/Http/Controllers/School/SubscriptionController');
 const { makeUploader } = require('../utils/UploadUtils');
 
 const uploadLogo = makeUploader('schools', ['jpg', 'jpeg', 'png', 'webp']).single('logo');
@@ -20,5 +21,10 @@ router.post('/login', SchoolLoginRequest.rules(), SchoolController.login);
 router.get('/profile', SchoolController.profile);
 router.post('/profile/update', uploadLogo, SchoolUpdateProfileRequest.rules(), SchoolController.updateProfile);
 router.post('/change-password', SchoolChangePasswordRequest.rules(), SchoolController.changePassword);
+
+// School Subscription & SaaS Billing Routes
+router.get('/subscription', SubscriptionController.getDetails);
+router.post('/subscription/checkout', SubscriptionController.createCheckoutSession);
+router.post('/subscription/webhook', SubscriptionController.webhook);
 
 module.exports = router;
