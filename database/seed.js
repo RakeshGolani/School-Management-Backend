@@ -71,7 +71,19 @@ async function seedDatabase() {
       ends_at: endsAt
     });
 
-    // 3. Create Class Teachers
+    // 3. Create Default School Classes
+    console.log('Seeding School Classes...');
+    const { SchoolClass } = require('../app/Models');
+    await SchoolClass.create({
+      school_id: school.id,
+      class_name: 'Grade 8',
+      section: 'A',
+      room_number: '101',
+      capacity: 40,
+      status: 'active'
+    });
+
+    // 4. Create Class Teachers
     console.log('Seeding Teachers...');
     await Teacher.create({
       school_id: school.id,
@@ -81,7 +93,6 @@ async function seedDatabase() {
       password: defaultPassword,
       subject: 'Mathematics',
       qualification: 'M.Sc, B.Ed',
-      class_assigned: 'Grade 10-A',
       gender: 'male',
       phone: '9876543202',
       nfc_card_uid: 'TEACHER_CARD_001',
@@ -96,14 +107,13 @@ async function seedDatabase() {
       password: defaultPassword,
       subject: 'Science & Physics',
       qualification: 'Ph.D in Physics',
-      class_assigned: 'Grade 9-B',
       gender: 'female',
       phone: '9876543203',
       nfc_card_uid: 'TEACHER_CARD_002',
       status: 'active'
     });
 
-    await Teacher.create({
+    const teacher3 = await Teacher.create({
       school_id: school.id,
       employee_id: 'EMP-1003',
       name: 'Rajesh Kulkarni',
@@ -111,12 +121,22 @@ async function seedDatabase() {
       password: defaultPassword,
       subject: 'English Literature',
       qualification: 'M.A. English, B.Ed',
-      class_assigned: 'Grade 8-A',
       gender: 'male',
       phone: '9876543204',
       nfc_card_uid: 'TEACHER_CARD_003',
       status: 'active'
     });
+
+    // Seed relational teacher class assignment for Rajesh Kulkarni
+    const { TeacherClassAssignment } = require('../app/Models');
+    const classRecord = await SchoolClass.findOne({ where: { school_id: school.id, class_name: 'Grade 8', section: 'A' } });
+    if (classRecord) {
+      await TeacherClassAssignment.create({
+        school_id: school.id,
+        teacher_id: teacher3.id,
+        class_id: classRecord.id
+      });
+    }
 
     await Teacher.create({
       school_id: school.id,
@@ -126,7 +146,6 @@ async function seedDatabase() {
       password: defaultPassword,
       subject: 'Computer Science',
       qualification: 'B.Tech CSE, M.Tech',
-      class_assigned: 'Grade 5-B',
       gender: 'female',
       phone: '9876543205',
       nfc_card_uid: 'TEACHER_CARD_004',

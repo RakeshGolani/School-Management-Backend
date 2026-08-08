@@ -43,6 +43,11 @@ module.exports = {
         type: Sequelize.ENUM('active', 'inactive', 'pending'),
         defaultValue: 'active',
       },
+      primary_color: {
+        type: Sequelize.STRING(20),
+        allowNull: true,
+        defaultValue: '#f59e0b'
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,

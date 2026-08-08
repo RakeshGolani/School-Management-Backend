@@ -48,10 +48,6 @@ const Teacher = sequelize.define('Teacher', {
     type: DataTypes.STRING,
     allowNull: true
   },
-  class_assigned: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
   photo: {
     type: DataTypes.TEXT('long'),
     allowNull: true

@@ -9,6 +9,16 @@ module.exports = {
         primaryKey: true,
         autoIncrement: true,
       },
+      school_id: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+      },
+      employee_id: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        unique: true
+      },
       name: {
         type: Sequelize.STRING,
         allowNull: false,
@@ -26,9 +36,30 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: true,
       },
-      class_assigned: {
+      gender: {
+        type: Sequelize.ENUM('male', 'female', 'other'),
+        defaultValue: 'male'
+      },
+      qualification: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      subject: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      photo: {
+        type: Sequelize.TEXT('long'),
+        allowNull: true
+      },
+      nfc_card_uid: {
         type: Sequelize.STRING,
         allowNull: true,
+        unique: true
+      },
+      status: {
+        type: Sequelize.ENUM('active', 'inactive', 'suspended'),
+        defaultValue: 'active'
       },
       createdAt: {
         type: Sequelize.DATE,

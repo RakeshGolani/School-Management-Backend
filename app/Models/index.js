@@ -13,49 +13,81 @@ const BillingSetting = require('./BillingSetting');
 const SchoolSubscription = require('./SchoolSubscription');
 const SubscriptionTransaction = require('./SubscriptionTransaction');
 const SchoolInvoice = require('./SchoolInvoice');
+const AcademicYear = require('./AcademicYear');
+const StudentAcademicSession = require('./StudentAcademicSession');
+const TeacherClassAssignment = require('./TeacherClassAssignment');
+const SchoolClass = require('./SchoolClass');
 
 // 1. Parent - Student Relationships
 Parent.hasMany(Student, { foreignKey: 'parent_id', as: 'children' });
 Student.belongsTo(Parent, { foreignKey: 'parent_id', as: 'parent' });
 
-// School - Teacher Relationships
+// 2. School - AcademicYear & SchoolClass Relationships
+School.hasMany(AcademicYear, { foreignKey: 'school_id', as: 'academicYears' });
+AcademicYear.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+School.hasMany(SchoolClass, { foreignKey: 'school_id', as: 'classes' });
+SchoolClass.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+// 3. Student - AcademicYear / AcademicSession Relationships
+AcademicYear.hasMany(StudentAcademicSession, { foreignKey: 'academic_year_id', as: 'studentSessions' });
+StudentAcademicSession.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
+Student.hasMany(StudentAcademicSession, { foreignKey: 'student_id', as: 'academicSessions' });
+StudentAcademicSession.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+
+// 4. School - Teacher, Class Teacher & TeacherClassAssignment Relationships
 School.hasMany(Teacher, { foreignKey: 'school_id', as: 'teachers' });
 Teacher.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 
+Teacher.hasMany(TeacherClassAssignment, { foreignKey: 'teacher_id', as: 'assignedClasses' });
+TeacherClassAssignment.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
 
-// 2. BusRoute - BusStop Relationships
+SchoolClass.hasMany(TeacherClassAssignment, { foreignKey: 'class_id', as: 'classAssignments' });
+TeacherClassAssignment.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
+
+Teacher.hasMany(SchoolClass, { foreignKey: 'class_teacher_id', as: 'managedClasses' });
+SchoolClass.belongsTo(Teacher, { foreignKey: 'class_teacher_id', as: 'classTeacher' });
+
+// 5. BusRoute & Bus Relationships
 BusRoute.hasMany(BusStop, { foreignKey: 'route_id', as: 'stops' });
 BusStop.belongsTo(BusRoute, { foreignKey: 'route_id', as: 'route' });
 
-// 3. BusRoute - Bus Relationships
 BusRoute.hasMany(Bus, { foreignKey: 'route_id', as: 'buses' });
 Bus.belongsTo(BusRoute, { foreignKey: 'route_id', as: 'route' });
 
-// 4. Student - BusRoute / BusStop (Optional Transport subscription)
+// 6. Student - Transport
 Student.belongsTo(BusRoute, { foreignKey: 'bus_route_id', as: 'busRoute' });
 Student.belongsTo(BusStop, { foreignKey: 'bus_stop_id', as: 'busStop' });
 
-// 5. Student - AttendanceLog
+// 7. AttendanceLog Relationships
 Student.hasMany(AttendanceLog, { foreignKey: 'student_id', as: 'attendanceLogs' });
 AttendanceLog.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+SchoolClass.hasMany(AttendanceLog, { foreignKey: 'class_id', as: 'attendanceLogs' });
+AttendanceLog.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
 
-// 6. Student - BusAttendanceLog
+Teacher.hasMany(AttendanceLog, { foreignKey: 'teacher_id', as: 'attendanceLogs' });
+AttendanceLog.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
+
+School.hasMany(AttendanceLog, { foreignKey: 'school_id', as: 'attendanceLogs' });
+AttendanceLog.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+AcademicYear.hasMany(AttendanceLog, { foreignKey: 'academic_year_id', as: 'attendanceLogs' });
+AttendanceLog.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
+
+// 8. BusAttendanceLog Relationships
 Student.hasMany(BusAttendanceLog, { foreignKey: 'student_id', as: 'busAttendanceLogs' });
 BusAttendanceLog.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
 
-// 7. Bus - BusAttendanceLog
 Bus.hasMany(BusAttendanceLog, { foreignKey: 'bus_id', as: 'scanLogs' });
 BusAttendanceLog.belongsTo(Bus, { foreignKey: 'bus_id', as: 'bus' });
 
-// 8. BusRoute - BusAttendanceLog
 BusRoute.hasMany(BusAttendanceLog, { foreignKey: 'route_id', as: 'scanLogs' });
 BusAttendanceLog.belongsTo(BusRoute, { foreignKey: 'route_id', as: 'route' });
 
-// 9. BusStop - BusAttendanceLog
 BusStop.hasMany(BusAttendanceLog, { foreignKey: 'stop_id', as: 'scanLogs' });
 BusAttendanceLog.belongsTo(BusStop, { foreignKey: 'stop_id', as: 'stop' });
 
-// 10. Billing and Subscription Relationships
+// 9. Billing and Subscription Relationships
 School.hasOne(SchoolSubscription, { foreignKey: 'school_id', as: 'subscription' });
 SchoolSubscription.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 
@@ -86,5 +118,9 @@ module.exports = {
   BillingSetting,
   SchoolSubscription,
   SubscriptionTransaction,
-  SchoolInvoice
+  SchoolInvoice,
+  AcademicYear,
+  StudentAcademicSession,
+  TeacherClassAssignment,
+  SchoolClass
 };

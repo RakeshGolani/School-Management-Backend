@@ -1,9 +1,44 @@
 const BaseController = require('../BaseController');
-const { Teacher, School } = require('../../../Models');
+const { Teacher, School, TeacherClassAssignment, SchoolClass, sequelize } = require('../../../Models');
 const { Op } = require('sequelize');
 const TeacherResource = require('../../Resources/Teacher/TeacherResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
 const bcrypt = require('bcryptjs');
+
+/**
+ * Helper to sync teacher_class_assignments relational records
+ */
+async function syncTeacherClassAssignments(teacherId, schoolId, classAssignedStr, transaction) {
+  if (classAssignedStr === undefined) return;
+
+  await TeacherClassAssignment.destroy({
+    where: { teacher_id: teacherId },
+    transaction
+  });
+
+  if (!classAssignedStr) return;
+
+  const classList = classAssignedStr.split(',').map(c => c.trim()).filter(Boolean);
+  for (const itemStr of classList) {
+    // Parse "Grade 10-A" format or lookup SchoolClass by class_name & section
+    const parts = itemStr.split('-');
+    const className = parts[0] ? parts[0].trim() : itemStr;
+    const section = parts[1] ? parts[1].trim() : 'A';
+
+    const clsRecord = await SchoolClass.findOne({
+      where: { school_id: schoolId, class_name: className, section: section },
+      transaction
+    });
+
+    if (clsRecord) {
+      await TeacherClassAssignment.create({
+        school_id: schoolId,
+        teacher_id: teacherId,
+        class_id: clsRecord.id
+      }, { transaction });
+    }
+  }
+}
 
 /**
  * TeacherController
@@ -47,7 +82,6 @@ class TeacherController extends BaseController {
           { email: { [Op.like]: `%${trimmedSearch}%` } },
           { employee_id: { [Op.like]: `%${trimmedSearch}%` } },
           { subject: { [Op.like]: `%${trimmedSearch}%` } },
-          { class_assigned: { [Op.like]: `%${trimmedSearch}%` } },
           { nfc_card_uid: { [Op.like]: `%${trimmedSearch}%` } },
           { phone: { [Op.like]: `%${trimmedSearch}%` } }
         ];
@@ -61,6 +95,13 @@ class TeacherController extends BaseController {
 
       const { count, rows: teachers } = await Teacher.findAndCountAll({
         where: whereClause,
+        include: [
+          { 
+            model: TeacherClassAssignment, 
+            as: 'assignedClasses',
+            include: [{ model: SchoolClass, as: 'schoolClass' }]
+          }
+        ],
         order: [['createdAt', 'DESC']],
         limit: limitNum,
         offset: offset,
@@ -93,7 +134,15 @@ class TeacherController extends BaseController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id);
+      const teacher = await Teacher.findByPk(id, {
+        include: [
+          { 
+            model: TeacherClassAssignment, 
+            as: 'assignedClasses',
+            include: [{ model: SchoolClass, as: 'schoolClass' }]
+          }
+        ]
+      });
 
       if (!teacher) {
         return this.sendError(res, 'Teacher record not found', 404);
@@ -110,6 +159,7 @@ class TeacherController extends BaseController {
    * Add new teacher profile
    */
   async store(req, res) {
+    const transaction = await sequelize.transaction();
     try {
       const {
         name,
@@ -129,8 +179,9 @@ class TeacherController extends BaseController {
       const targetSchoolId = school_id || schoolId || req.query.schoolId || req.headers['x-school-id'] || 1;
 
       // Check unique email
-      const existingEmail = await Teacher.findOne({ where: { email } });
+      const existingEmail = await Teacher.findOne({ where: { email }, transaction });
       if (existingEmail) {
+        await transaction.rollback();
         if (req.file) removeFile(req.file);
         return this.sendValidationError(
           res,
@@ -142,8 +193,9 @@ class TeacherController extends BaseController {
 
       // Check unique NFC card UID if provided
       if (nfc_card_uid) {
-        const existingUid = await Teacher.findOne({ where: { nfc_card_uid } });
+        const existingUid = await Teacher.findOne({ where: { nfc_card_uid }, transaction });
         if (existingUid) {
+          await transaction.rollback();
           if (req.file) removeFile(req.file);
           return this.sendValidationError(
             res,
@@ -175,15 +227,24 @@ class TeacherController extends BaseController {
         gender: gender || 'male',
         qualification: qualification || null,
         subject: subject || null,
-        class_assigned: class_assigned || null,
         photo: photoPath,
         nfc_card_uid: nfc_card_uid || null,
         status: 'active'
+      }, { transaction });
+
+      // Sync relational table teacher_class_assignments
+      await syncTeacherClassAssignments(teacher.id, teacher.school_id, class_assigned, transaction);
+
+      await transaction.commit();
+
+      const createdTeacher = await Teacher.findByPk(teacher.id, {
+        include: [{ model: TeacherClassAssignment, as: 'assignedClasses' }]
       });
 
-      const teacherData = new TeacherResource(teacher).toJson();
+      const teacherData = new TeacherResource(createdTeacher).toJson();
       return this.sendResponse(res, teacherData, 'Teacher record created successfully', 201);
     } catch (error) {
+      await transaction.rollback();
       if (req.file) removeFile(req.file);
       console.error('Error creating teacher:', error);
       return this.sendError(res, 'Failed to create teacher: ' + error.message, 500);
@@ -194,11 +255,13 @@ class TeacherController extends BaseController {
    * Update teacher profile
    */
   async update(req, res) {
+    const transaction = await sequelize.transaction();
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id);
+      const teacher = await Teacher.findByPk(id, { transaction });
 
       if (!teacher) {
+        await transaction.rollback();
         if (req.file) removeFile(req.file);
         return this.sendError(res, 'Teacher profile not found', 404);
       }
@@ -217,8 +280,9 @@ class TeacherController extends BaseController {
       } = req.body;
 
       if (email && email !== teacher.email) {
-        const existingEmail = await Teacher.findOne({ where: { email } });
+        const existingEmail = await Teacher.findOne({ where: { email }, transaction });
         if (existingEmail) {
+          await transaction.rollback();
           if (req.file) removeFile(req.file);
           return this.sendValidationError(
             res,
@@ -230,8 +294,9 @@ class TeacherController extends BaseController {
       }
 
       if (nfc_card_uid && nfc_card_uid !== teacher.nfc_card_uid) {
-        const existingUid = await Teacher.findOne({ where: { nfc_card_uid } });
+        const existingUid = await Teacher.findOne({ where: { nfc_card_uid }, transaction });
         if (existingUid) {
+          await transaction.rollback();
           if (req.file) removeFile(req.file);
           return this.sendValidationError(
             res,
@@ -248,7 +313,6 @@ class TeacherController extends BaseController {
       if (gender) teacher.gender = gender;
       if (qualification !== undefined) teacher.qualification = qualification || null;
       if (subject !== undefined) teacher.subject = subject || null;
-      if (class_assigned !== undefined) teacher.class_assigned = class_assigned || null;
       if (employee_id !== undefined) teacher.employee_id = employee_id || teacher.employee_id;
       if (nfc_card_uid !== undefined) teacher.nfc_card_uid = nfc_card_uid || null;
       if (status) teacher.status = status;
@@ -261,11 +325,23 @@ class TeacherController extends BaseController {
         teacher.photo = `/uploads/teachers/${req.file.filename}`;
       }
 
-      await teacher.save();
+      await teacher.save({ transaction });
 
-      const teacherData = new TeacherResource(teacher).toJson();
+      // Sync relational table teacher_class_assignments
+      if (class_assigned !== undefined) {
+        await syncTeacherClassAssignments(teacher.id, teacher.school_id, class_assigned, transaction);
+      }
+
+      await transaction.commit();
+
+      const updatedTeacher = await Teacher.findByPk(teacher.id, {
+        include: [{ model: TeacherClassAssignment, as: 'assignedClasses' }]
+      });
+
+      const teacherData = new TeacherResource(updatedTeacher).toJson();
       return this.sendResponse(res, teacherData, 'Teacher profile updated successfully');
     } catch (error) {
+      await transaction.rollback();
       if (req.file) removeFile(req.file);
       console.error('Error updating teacher:', error);
       return this.sendError(res, 'Failed to update teacher: ' + error.message, 500);
