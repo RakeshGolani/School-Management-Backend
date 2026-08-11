@@ -26,6 +26,10 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: true,
       },
+      roll_number: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
       grade: {
         type: Sequelize.STRING,
         allowNull: true,
@@ -59,7 +63,7 @@ module.exports = {
         allowNull: true,
       },
       class_id: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         allowNull: true,
       },
       photo: {

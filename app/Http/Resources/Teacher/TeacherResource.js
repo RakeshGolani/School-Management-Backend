@@ -11,13 +11,22 @@ class TeacherResource extends BaseResource {
       photoUrl = `http://localhost:5000${photoUrl}`;
     }
 
-    const assignedClassesList = this.resource.assignedClasses 
+    const detailedAssignments = this.resource.assignedClasses 
       ? this.resource.assignedClasses.map(ac => {
-          if (ac.schoolClass) {
-            return `${ac.schoolClass.class_name}-${ac.schoolClass.section}`;
-          }
-          return ac.class_id ? `Class #${ac.class_id}` : (ac.class_name || '');
-        }).filter(Boolean)
+          const className = ac.schoolClass ? `${ac.schoolClass.class_name}-${ac.schoolClass.section}` : (ac.class_id ? `Class #${ac.class_id}` : '');
+          const yearName = ac.academicYear ? ac.academicYear.year_name : null;
+          return {
+            id: ac.id,
+            classId: ac.class_id,
+            className: className,
+            academicYearId: ac.academic_year_id,
+            academicYearName: yearName
+          };
+        })
+      : [];
+
+    const assignedClassesList = detailedAssignments.length > 0
+      ? detailedAssignments.map(a => a.className).filter(Boolean)
       : (this.resource.class_assigned ? this.resource.class_assigned.split(',').map(c => c.trim()).filter(Boolean) : []);
 
     const classAssignedStr = assignedClassesList.length > 0 ? assignedClassesList.join(', ') : (this.resource.class_assigned || '');
@@ -34,6 +43,7 @@ class TeacherResource extends BaseResource {
       subject: this.resource.subject || '',
       classAssigned: classAssignedStr,
       assignedClasses: assignedClassesList,
+      assignmentHistory: detailedAssignments,
       photo: photoUrl,
       nfcCardUid: this.resource.nfc_card_uid || null,
       status: this.resource.status || 'active',

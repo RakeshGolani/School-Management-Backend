@@ -25,6 +25,7 @@ router.put('/profile/:id', AdminDashboardController.updateProfile);
 
 // --- School Management ---
 router.get('/schools', AdminSchoolController.index);
+router.get('/schools/:id', AdminSchoolController.show);
 router.post('/schools', SchoolRequest.rules(), AdminSchoolController.store);
 router.put('/schools/:id', SchoolRequest.rules(), AdminSchoolController.update);
 router.delete('/schools/:id', AdminSchoolController.destroy);
@@ -41,6 +42,11 @@ router.delete('/students/:id', AdminStudentController.destroy);
 // --- Global SaaS Billing Settings ---
 router.get('/billing-settings', BillingSettingController.getSettings);
 router.put('/billing-settings', BillingSettingController.updateSettings);
+
+// --- Transactions & Billing ---
+const AdminTransactionController = require('../app/Http/Controllers/Admin/AdminTransactionController');
+router.get('/transactions', AdminTransactionController.index);
+router.get('/transactions/:id', AdminTransactionController.show);
 
 module.exports = router;
 

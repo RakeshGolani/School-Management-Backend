@@ -22,6 +22,88 @@ class AdminSchoolController {
     }
   }
 
+  // GET /api/admin/schools/:id
+  static async show(req, res) {
+    try {
+      const { id } = req.params;
+      const { 
+        School, 
+        Teacher, 
+        Student, 
+        SchoolClass, 
+        AcademicYear, 
+        SchoolSubscription, 
+        SubscriptionTransaction, 
+        SchoolInvoice 
+      } = require("../../../Models");
+
+      const school = await School.findByPk(id, {
+        include: [
+          {
+            model: SchoolSubscription,
+            as: 'subscription'
+          },
+          {
+            model: AcademicYear,
+            as: 'academicYears'
+          }
+        ]
+      });
+
+      if (!school) {
+        return res.status(404).json({ success: false, message: 'School not found' });
+      }
+
+      // Fetch Teachers for this school
+      const teachers = await Teacher.findAll({
+        where: { school_id: id },
+        order: [['createdAt', 'DESC']]
+      });
+
+      // Fetch Students for this school
+      const students = await Student.findAll({
+        where: { school_id: id },
+        include: [{ model: SchoolClass, as: 'schoolClass', attributes: ['id', 'class_name', 'section'] }],
+        order: [['createdAt', 'DESC']]
+      });
+
+      // Fetch Classes for this school
+      const classes = await SchoolClass.findAll({
+        where: { school_id: id },
+        include: [{ model: Teacher, as: 'classTeacher', attributes: ['id', 'name', 'email'] }],
+        order: [['class_name', 'ASC'], ['section', 'ASC']]
+      });
+
+      // Fetch Transactions & Invoices for this school
+      const transactions = await SubscriptionTransaction.findAll({
+        where: { school_id: id },
+        include: [{ model: SchoolInvoice, as: 'invoice' }],
+        order: [['createdAt', 'DESC']]
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          school,
+          stats: {
+            totalTeachers: teachers.length,
+            totalStudents: students.length,
+            totalClasses: classes.length,
+            activeStudents: students.filter(s => s.status === 'active').length,
+          },
+          teachers,
+          students,
+          classes,
+          subscription: school.subscription || null,
+          transactions
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching school detail:', error);
+      return res.status(500).json({ success: false, message: 'Server error fetching school details' });
+    }
+  }
+
   // POST /api/admin/schools
   static async store(req, res) {
     const errors = validationResult(req);

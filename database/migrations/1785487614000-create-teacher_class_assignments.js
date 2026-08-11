@@ -48,7 +48,7 @@ module.exports = {
     });
 
     await queryInterface.addIndex('teacher_class_assignments', ['teacher_id']);
-    await queryInterface.addIndex('teacher_class_assignments', ['school_id', 'class_name']);
+    await queryInterface.addIndex('teacher_class_assignments', ['school_id', 'class_id']);
   },
 
   down: async (queryInterface, Sequelize) => {

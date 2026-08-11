@@ -23,6 +23,10 @@ const Student = sequelize.define('Student', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  roll_number: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   grade: {
     type: DataTypes.STRING,
     allowNull: true
@@ -56,7 +60,7 @@ const Student = sequelize.define('Student', {
     allowNull: true
   },
   class_id: {
-    type: DataTypes.STRING,
+    type: DataTypes.INTEGER,
     allowNull: true
   },
   photo: {
@@ -83,6 +87,21 @@ const Student = sequelize.define('Student', {
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'suspended'),
     defaultValue: 'active'
+  },
+  image_url: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const photo = this.getDataValue('photo');
+      if (photo && typeof photo === 'string' && photo.trim() !== '') {
+        return photo;
+      }
+      const firstName = this.getDataValue('first_name') || '';
+      const lastName = this.getDataValue('last_name') || '';
+      const fullName = `${firstName} ${lastName}`.trim() || 'Student';
+      const gender = this.getDataValue('gender');
+      const bg = gender === 'female' ? 'ec4899' : '0284c7';
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=${bg}&color=fff&bold=true`;
+    }
   }
 }, {
   tableName: 'students',

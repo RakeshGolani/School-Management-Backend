@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { SchoolClass, Teacher, Student, sequelize } = require('../../../Models');
+const { SchoolClass, Teacher, Student, TeacherClassAssignment, sequelize } = require('../../../Models');
 const { Op } = require('sequelize');
 
 class ClassController extends BaseController {
@@ -31,13 +31,34 @@ class ClassController extends BaseController {
           { 
             model: Teacher, 
             as: 'classTeacher',
-            attributes: ['id', 'name', 'email', 'phone', 'employee_id'] 
+            attributes: ['id', 'name', 'email', 'phone', 'employee_id'],
+            required: false
+          },
+          {
+            model: TeacherClassAssignment,
+            as: 'classAssignments',
+            required: false,
+            include: [{
+              model: Teacher,
+              as: 'teacher',
+              attributes: ['id', 'name', 'email', 'phone', 'employee_id']
+            }]
           }
         ],
         order: [['class_name', 'ASC'], ['section', 'ASC']]
       });
 
-      return this.sendResponse(res, classes, 'School classes retrieved successfully');
+      // Merge: if classTeacher is null, pull from classAssignments[0].teacher
+      const enriched = classes.map(cls => {
+        const raw = cls.toJSON();
+        if (!raw.classTeacher && raw.classAssignments && raw.classAssignments.length > 0) {
+          raw.classTeacher = raw.classAssignments[0].teacher;
+        }
+        return raw;
+      });
+
+      return this.sendResponse(res, enriched, 'School classes retrieved successfully');
+
     } catch (error) {
       console.error('Error fetching school classes:', error);
       return this.sendError(res, 'Failed to fetch classes', error.message, 500);
@@ -120,6 +141,133 @@ class ClassController extends BaseController {
     } catch (error) {
       console.error('Error updating class:', error);
       return this.sendError(res, 'Failed to update class', error.message, 500);
+    }
+  }
+
+  /**
+   * Get class details by ID including teacher and enrolled students
+   */
+  async show(req, res) {
+    try {
+      const { id } = req.params;
+      const schoolClass = await SchoolClass.findByPk(id, {
+        include: [
+          {
+            model: Teacher,
+            as: 'classTeacher',
+            attributes: ['id', 'name', 'email', 'phone', 'employee_id', 'subject']
+          },
+          {
+            model: Student,
+            as: 'students',
+            attributes: [
+              'id', 'first_name', 'last_name', 'admission_number', 'grade', 'section', 
+              'gender', 'guardian_name', 'guardian_phone', 'photo', 'image_url', 'nfc_card_uid', 'status'
+            ]
+          }
+        ]
+      });
+
+      if (!schoolClass) {
+        return this.sendError(res, 'Class record not found', null, 404);
+      }
+
+      // Fallback: if class_teacher_id is not set directly, look up via TeacherClassAssignment
+      // (happens when teacher is assigned through the Teachers module instead of the Class form)
+      let resolvedTeacher = schoolClass.classTeacher;
+      if (!resolvedTeacher) {
+        const assignment = await TeacherClassAssignment.findOne({
+          where: { class_id: schoolClass.id },
+          include: [{
+            model: Teacher,
+            as: 'teacher',
+            attributes: ['id', 'name', 'email', 'phone', 'employee_id', 'subject']
+          }]
+        });
+        if (assignment && assignment.teacher) {
+          resolvedTeacher = assignment.teacher;
+          // Auto-sync class_teacher_id so future queries are consistent
+          await schoolClass.update({ class_teacher_id: assignment.teacher_id });
+        }
+      }
+
+      // Fetch unassigned students or students from other classes for assignment dropdown
+      const unassignedStudents = await Student.findAll({
+        where: {
+          school_id: schoolClass.school_id,
+          [Op.or]: [
+            { class_id: null },
+            { class_id: { [Op.ne]: schoolClass.id } }
+          ],
+          status: 'active'
+        },
+        attributes: ['id', 'first_name', 'last_name', 'admission_number', 'grade', 'section', 'gender', 'nfc_card_uid'],
+        limit: 100
+      });
+
+      const classData = schoolClass.toJSON();
+      classData.classTeacher = resolvedTeacher ? (resolvedTeacher.toJSON ? resolvedTeacher.toJSON() : resolvedTeacher) : null;
+
+      return this.sendResponse(res, {
+        class: classData,
+        unassignedStudents
+      }, 'Class details retrieved successfully');
+    } catch (error) {
+      console.error('Error fetching class details:', error);
+      return this.sendError(res, 'Failed to fetch class details', error.message, 500);
+    }
+  }
+
+  /**
+   * Assign a student to this class
+   */
+  async assignStudent(req, res) {
+    try {
+      const { id } = req.params;
+      const { student_id } = req.body;
+
+      const schoolClass = await SchoolClass.findByPk(id);
+      if (!schoolClass) {
+        return this.sendError(res, 'Class record not found', null, 404);
+      }
+
+      const student = await Student.findByPk(student_id);
+      if (!student) {
+        return this.sendError(res, 'Student record not found', null, 404);
+      }
+
+      await student.update({
+        class_id: schoolClass.id,
+        grade: schoolClass.class_name,
+        section: schoolClass.section
+      });
+
+      return this.sendResponse(res, student, 'Student assigned to class successfully');
+    } catch (error) {
+      console.error('Error assigning student to class:', error);
+      return this.sendError(res, 'Failed to assign student', error.message, 500);
+    }
+  }
+
+  /**
+   * Unassign a student from this class
+   */
+  async unassignStudent(req, res) {
+    try {
+      const { id, studentId } = req.params;
+      const student = await Student.findOne({
+        where: { id: studentId, class_id: id }
+      });
+
+      if (!student) {
+        return this.sendError(res, 'Student record not found in this class', null, 404);
+      }
+
+      await student.update({ class_id: null });
+      return this.sendResponse(res, null, 'Student unassigned from class successfully');
+    } catch (error) {
+      console.error('Error unassigning student:', error);
+      return this.sendError(res, 'Failed to unassign student', error.message, 500);
     }
   }
 

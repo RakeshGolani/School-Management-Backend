@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Student, BusRoute, BusStop, Parent, SchoolSubscription } = require('../../../Models');
+const { Student, BusRoute, BusStop, Parent, SchoolSubscription, AcademicYear, StudentAcademicSession, SchoolClass, sequelize } = require('../../../Models');
 const { Op, where, fn, col } = require('sequelize');
 const StudentResource = require('../../Resources/Student/StudentResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -7,7 +7,8 @@ const bcrypt = require('bcrypt');
 
 /**
  * StudentController
- * Handles student admissions, profile management, NFC card assignment, bus subscriptions, and photo uploads.
+ * Handles student admissions, profile management, NFC card assignment,
+ * bus subscriptions, photo uploads, and academic session tracking.
  */
 class StudentController extends BaseController {
   constructor() {
@@ -18,25 +19,108 @@ class StudentController extends BaseController {
     this.update = this.update.bind(this);
     this.destroy = this.destroy.bind(this);
     this.toggleStatus = this.toggleStatus.bind(this);
+    this.promoteStudents = this.promoteStudents.bind(this);
+    this.getSessionStudents = this.getSessionStudents.bind(this);
   }
 
   /**
-   * Get filtered list of students
+   * Get filtered list of students.
+   * If academic_year_id is provided, only return students enrolled in that session.
+   * Otherwise return all students (backward compatible).
    */
   async index(req, res) {
     try {
-      const { search, grade, is_bus, status, schoolId } = req.query;
+      const { search, grade, is_bus, status, schoolId, academic_year_id } = req.query;
       const targetSchoolId = schoolId || req.headers['x-school-id'];
 
+      const pageNum = parseInt(req.query.page, 10) || 1;
+      const limitNum = parseInt(req.query.limit, 10) || 5;
+      const offset = (pageNum - 1) * limitNum;
+
+      // ── If academic_year_id supplied, filter via student_academic_sessions ──
+      if (academic_year_id) {
+        const sessionWhere = { academic_year_id };
+        if (targetSchoolId) sessionWhere.school_id = targetSchoolId;
+
+        // Build student sub-filter
+        const studentWhere = {};
+        if (status && status !== 'all') studentWhere.status = status;
+        if (is_bus !== undefined && is_bus !== 'all') {
+          studentWhere.is_bus_service_enabled = is_bus === 'true' || is_bus === '1';
+        }
+        if (grade && grade !== 'all') {
+          const cleanGrade = grade.replace(/^Grade\s+/i, '').trim();
+          studentWhere[Op.or] = [
+            { grade: { [Op.like]: `%${cleanGrade}%` } },
+            { class_id: { [Op.like]: `%${cleanGrade}%` } }
+          ];
+        }
+        if (search) {
+          const t = search.trim();
+          const cond = [
+            { first_name: { [Op.like]: `%${t}%` } },
+            { last_name: { [Op.like]: `%${t}%` } },
+            where(fn('CONCAT', col('first_name'), ' ', col('last_name')), { [Op.like]: `%${t}%` }),
+            { admission_number: { [Op.like]: `%${t}%` } },
+            { roll_number: { [Op.like]: `%${t}%` } },
+            { guardian_name: { [Op.like]: `%${t}%` } },
+            { guardian_phone: { [Op.like]: `%${t}%` } }
+          ];
+          if (studentWhere[Op.or]) {
+            studentWhere[Op.and] = [{ [Op.or]: studentWhere[Op.or] }, { [Op.or]: cond }];
+            delete studentWhere[Op.or];
+          } else {
+            studentWhere[Op.or] = cond;
+          }
+        }
+
+        const { count, rows: sessions } = await StudentAcademicSession.findAndCountAll({
+          where: sessionWhere,
+          limit: limitNum,
+          offset,
+          order: [['createdAt', 'DESC']],
+          include: [
+            {
+              model: Student,
+              as: 'student',
+              where: Object.keys(studentWhere).length > 0 ? studentWhere : undefined,
+              required: true,
+              include: [
+                { model: BusRoute, as: 'busRoute' },
+                { model: BusStop, as: 'busStop' },
+                { model: Parent, as: 'parent' }
+              ]
+            }
+          ],
+          distinct: true
+        });
+
+        const studentList = sessions.map(s => {
+          const raw = new StudentResource(s.student).toJson();
+          raw.session_status = s.status;
+          raw.session_grade = s.grade;
+          raw.session_section = s.section;
+          raw.session_id = s.id;
+          return raw;
+        });
+
+        return res.status(200).json({
+          status: 'success',
+          message: 'Students retrieved successfully',
+          data: studentList,
+          meta: {
+            total: count,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: Math.ceil(count / limitNum)
+          }
+        });
+      }
+
+      // ── Default: return all students (no session filter) ──
       const whereClause = {};
-      if (targetSchoolId) {
-        whereClause.school_id = targetSchoolId;
-      }
-
-      if (status && status !== 'all') {
-        whereClause.status = status;
-      }
-
+      if (targetSchoolId) whereClause.school_id = targetSchoolId;
+      if (status && status !== 'all') whereClause.status = status;
       if (grade && grade !== 'all') {
         const cleanGrade = grade.replace(/^Grade\s+/i, '').trim();
         whereClause[Op.or] = [
@@ -44,38 +128,29 @@ class StudentController extends BaseController {
           { class_id: { [Op.like]: `%${cleanGrade}%` } }
         ];
       }
-
       if (is_bus !== undefined && is_bus !== 'all') {
         whereClause.is_bus_service_enabled = is_bus === 'true' || is_bus === '1';
       }
-
       if (search) {
-        const trimmedSearch = search.trim();
-        const searchCondition = [
-          { first_name: { [Op.like]: `%${trimmedSearch}%` } },
-          { last_name: { [Op.like]: `%${trimmedSearch}%` } },
-          where(fn('CONCAT', col('first_name'), ' ', col('last_name')), { [Op.like]: `%${trimmedSearch}%` }),
-          { admission_number: { [Op.like]: `%${trimmedSearch}%` } },
-          { nfc_card_uid: { [Op.like]: `%${trimmedSearch}%` } },
-          { guardian_name: { [Op.like]: `%${trimmedSearch}%` } },
-          { guardian_phone: { [Op.like]: `%${trimmedSearch}%` } }
+        const t = search.trim();
+        const cond = [
+          { first_name: { [Op.like]: `%${t}%` } },
+          { last_name: { [Op.like]: `%${t}%` } },
+          where(fn('CONCAT', col('first_name'), ' ', col('last_name')), { [Op.like]: `%${t}%` }),
+          { admission_number: { [Op.like]: `%${t}%` } },
+          { roll_number: { [Op.like]: `%${t}%` } },
+          { nfc_card_uid: { [Op.like]: `%${t}%` } },
+          { guardian_name: { [Op.like]: `%${t}%` } },
+          { guardian_phone: { [Op.like]: `%${t}%` } }
         ];
-
         if (whereClause[Op.or]) {
-          const previousOr = whereClause[Op.or];
+          const prev = whereClause[Op.or];
           delete whereClause[Op.or];
-          whereClause[Op.and] = [
-            { [Op.or]: previousOr },
-            { [Op.or]: searchCondition }
-          ];
+          whereClause[Op.and] = [{ [Op.or]: prev }, { [Op.or]: cond }];
         } else {
-          whereClause[Op.or] = searchCondition;
+          whereClause[Op.or] = cond;
         }
       }
-
-      const pageNum = parseInt(req.query.page, 10) || 1;
-      const limitNum = parseInt(req.query.limit, 10) || 5;
-      const offset = (pageNum - 1) * limitNum;
 
       const { count, rows: students } = await Student.findAndCountAll({
         where: whereClause,
@@ -86,27 +161,72 @@ class StudentController extends BaseController {
         ],
         order: [['createdAt', 'DESC']],
         limit: limitNum,
-        offset: offset,
+        offset,
         distinct: true
       });
-
-      const studentList = StudentResource.collection(students);
-      const totalPages = Math.ceil(count / limitNum);
 
       return res.status(200).json({
         status: 'success',
         message: 'Students retrieved successfully',
-        data: studentList,
+        data: StudentResource.collection(students),
         meta: {
           total: count,
           page: pageNum,
           limit: limitNum,
-          totalPages: totalPages
+          totalPages: Math.ceil(count / limitNum)
         }
       });
     } catch (error) {
       console.error('Error fetching students:', error);
       return this.sendError(res, 'Failed to fetch students: ' + error.message, 500);
+    }
+  }
+
+  /**
+   * Get students enrolled in a specific academic session (with session status).
+   * GET /api/school/student-sessions?academic_year_id=1
+   */
+  async getSessionStudents(req, res) {
+    try {
+      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const { academic_year_id } = req.query;
+
+      if (!academic_year_id) {
+        return this.sendValidationError(res, [], 'academic_year_id is required');
+      }
+
+      const sessions = await StudentAcademicSession.findAll({
+        where: { school_id, academic_year_id },
+        include: [
+          {
+            model: Student,
+            as: 'student',
+            where: { status: 'active' },
+            required: true,
+            include: [
+              { model: SchoolClass, as: 'schoolClass', attributes: ['id', 'class_name', 'section'] }
+            ]
+          }
+        ],
+        order: [['createdAt', 'ASC']]
+      });
+
+      const data = sessions.map(s => ({
+        session_id: s.id,
+        session_status: s.status,
+        session_grade: s.grade,
+        session_section: s.section,
+        student_id: s.student_id,
+        student_name: `${s.student.first_name} ${s.student.last_name}`,
+        admission_number: s.student.admission_number,
+        photo: s.student.image_url,
+        class: s.student.schoolClass ? `${s.student.schoolClass.class_name} - ${s.student.schoolClass.section}` : s.grade
+      }));
+
+      return this.sendResponse(res, data, 'Session students fetched successfully');
+    } catch (error) {
+      console.error('Error fetching session students:', error);
+      return this.sendError(res, 'Failed to fetch session students: ' + error.message, 500);
     }
   }
 
@@ -136,14 +256,17 @@ class StudentController extends BaseController {
   }
 
   /**
-   * Add new student admission
+   * Add new student admission.
+   * Automatically creates a StudentAcademicSession record for the active year.
    */
   async store(req, res) {
+    const transaction = await sequelize.transaction();
     try {
       const {
         first_name,
         last_name,
         admission_number,
+        roll_number,
         grade,
         section,
         gender,
@@ -157,38 +280,41 @@ class StudentController extends BaseController {
         bus_route_id,
         bus_stop_id,
         school_id,
-        schoolId
+        schoolId,
+        academic_year_id
       } = req.body;
 
       const targetSchoolId = school_id || schoolId || req.query.schoolId || req.headers['x-school-id'];
       if (!targetSchoolId) {
+        await transaction.rollback();
         if (req.file) removeFile(req.file);
         return this.sendError(res, 'School ID is required for student admission', 400);
       }
 
-      // Subscription limit validation
+      // Subscription limit check
       const subscription = req.subscription || await SchoolSubscription.findOne({
         where: { school_id: targetSchoolId, status: 'active' }
       });
-
       if (subscription) {
         const activeStudentsCount = await Student.count({
           where: { school_id: targetSchoolId, status: 'active' }
         });
         if (activeStudentsCount >= subscription.max_students_limit) {
+          await transaction.rollback();
           if (req.file) removeFile(req.file);
           return this.sendError(
             res,
-            `Student limit reached. Your subscription only allows up to ${subscription.max_students_limit} students. Please upgrade your subscription.`,
+            `Student limit reached. Your subscription allows up to ${subscription.max_students_limit} students.`,
             403
           );
         }
       }
 
-      // Check for unique NFC card UID if provided
+      // NFC UID uniqueness check
       if (nfc_card_uid) {
         const existingUid = await Student.findOne({ where: { nfc_card_uid } });
         if (existingUid) {
+          await transaction.rollback();
           if (req.file) removeFile(req.file);
           return this.sendValidationError(
             res,
@@ -204,7 +330,7 @@ class StudentController extends BaseController {
         photoPath = `/uploads/students/${req.file.filename}`;
       }
 
-      // Auto-create or link Parent logic
+      // Auto-create or link Parent
       let parent_id = null;
       if (guardian_email) {
         let parent = await Parent.findOne({ where: { email: guardian_email } });
@@ -215,16 +341,18 @@ class StudentController extends BaseController {
             email: guardian_email,
             phone: guardian_phone || null,
             password: defaultPassword
-          });
+          }, { transaction });
         }
         parent_id = parent.id;
       }
 
+      // Create student record
       const student = await Student.create({
         school_id: parseInt(targetSchoolId, 10),
         first_name,
         last_name,
         admission_number: admission_number || `ADM-${Date.now().toString().slice(-4)}`,
+        roll_number: roll_number || null,
         grade: grade || 'Grade 10-A',
         section: section || 'A',
         gender: gender || 'male',
@@ -232,18 +360,43 @@ class StudentController extends BaseController {
         guardian_name: guardian_name || null,
         guardian_phone: guardian_phone || null,
         alternate_phone: alternate_phone || null,
-        parent_id: parent_id,
+        parent_id,
         photo: photoPath,
         nfc_card_uid: nfc_card_uid || null,
         is_bus_service_enabled: is_bus_service_enabled === 'true' || is_bus_service_enabled === true,
         bus_route_id: bus_route_id || null,
         bus_stop_id: bus_stop_id || null,
         status: 'active'
-      });
+      }, { transaction });
+
+      // ── Auto-create StudentAcademicSession for active year ──
+      let resolvedYearId = academic_year_id ? parseInt(academic_year_id) : null;
+      if (!resolvedYearId) {
+        const activeYear = await AcademicYear.findOne({
+          where: { school_id: parseInt(targetSchoolId, 10), is_active: true }
+        });
+        resolvedYearId = activeYear?.id || null;
+      }
+
+      if (resolvedYearId) {
+        await StudentAcademicSession.create({
+          student_id: student.id,
+          academic_year_id: resolvedYearId,
+          school_id: parseInt(targetSchoolId, 10),
+          grade: grade || 'Grade 10-A',
+          section: section || 'A',
+          roll_number: roll_number || null,
+          status: 'ENROLLED'
+        }, { transaction });
+      }
+
+      await transaction.commit();
 
       const studentData = new StudentResource(student).toJson();
+      studentData.academic_year_id = resolvedYearId;
       return this.sendResponse(res, studentData, 'Student admission created successfully', 201);
     } catch (error) {
+      await transaction.rollback();
       if (req.file) removeFile(req.file);
       console.error('Error creating student:', error);
       return this.sendError(res, 'Failed to create student: ' + error.message, 500);
@@ -270,21 +423,9 @@ class StudentController extends BaseController {
       }
 
       const {
-        first_name,
-        last_name,
-        admission_number,
-        grade,
-        section,
-        gender,
-        dob,
-        guardian_name,
-        guardian_phone,
-        alternate_phone,
-        nfc_card_uid,
-        is_bus_service_enabled,
-        bus_route_id,
-        bus_stop_id,
-        status
+        first_name, last_name, admission_number, roll_number, grade, section, gender, dob,
+        guardian_name, guardian_phone, alternate_phone, nfc_card_uid,
+        is_bus_service_enabled, bus_route_id, bus_stop_id, status
       } = req.body;
 
       if (nfc_card_uid && nfc_card_uid !== student.nfc_card_uid) {
@@ -303,6 +444,7 @@ class StudentController extends BaseController {
       if (first_name) student.first_name = first_name;
       if (last_name) student.last_name = last_name;
       if (admission_number) student.admission_number = admission_number;
+      if (roll_number !== undefined) student.roll_number = roll_number || null;
       if (grade) student.grade = grade;
       if (section) student.section = section;
       if (gender) student.gender = gender;
@@ -318,11 +460,8 @@ class StudentController extends BaseController {
       if (bus_stop_id !== undefined) student.bus_stop_id = bus_stop_id || null;
       if (status) student.status = status;
 
-      // Handle photo replacement via Multer
       if (req.file) {
-        if (student.photo) {
-          removeFile(student.photo);
-        }
+        if (student.photo) removeFile(student.photo);
         student.photo = `/uploads/students/${req.file.filename}`;
       }
 
@@ -335,8 +474,7 @@ class StudentController extends BaseController {
         ]
       });
 
-      const studentData = new StudentResource(updatedStudent).toJson();
-      return this.sendResponse(res, studentData, 'Student profile updated successfully');
+      return this.sendResponse(res, new StudentResource(updatedStudent).toJson(), 'Student profile updated successfully');
     } catch (error) {
       if (req.file) removeFile(req.file);
       console.error('Error updating student:', error);
@@ -352,13 +490,9 @@ class StudentController extends BaseController {
       const { id } = req.params;
       const student = await Student.findByPk(id);
 
-      if (!student) {
-        return this.sendError(res, 'Student record not found', 404);
-      }
+      if (!student) return this.sendError(res, 'Student record not found', 404);
 
-      if (student.photo) {
-        removeFile(student.photo);
-      }
+      if (student.photo) removeFile(student.photo);
 
       await student.destroy();
       return this.sendResponse(res, null, 'Student record deleted successfully');
@@ -377,9 +511,7 @@ class StudentController extends BaseController {
       const { status } = req.body;
       const student = await Student.findByPk(id);
 
-      if (!student) {
-        return this.sendError(res, 'Student record not found', 404);
-      }
+      if (!student) return this.sendError(res, 'Student record not found', 404);
 
       student.status = status || (student.status === 'active' ? 'inactive' : 'active');
       await student.save();
@@ -388,6 +520,108 @@ class StudentController extends BaseController {
     } catch (error) {
       console.error('Error toggling student status:', error);
       return this.sendError(res, 'Failed to update student status: ' + error.message, 500);
+    }
+  }
+
+  /**
+   * Bulk promote students from one academic year to another.
+   * Body: { from_academic_year_id, to_academic_year_id, students: [{ student_id, new_grade, new_section, status }] }
+   * status options: PROMOTED | DETAINED | PASSED_OUT
+   */
+  async promoteStudents(req, res) {
+    const transaction = await sequelize.transaction();
+    try {
+      const school_id = req.user?.school_id || req.body.school_id || 1;
+      const { from_academic_year_id, to_academic_year_id, students } = req.body;
+
+      if (!from_academic_year_id || !to_academic_year_id) {
+        await transaction.rollback();
+        return this.sendValidationError(res, [], 'from_academic_year_id and to_academic_year_id are required');
+      }
+
+      if (!Array.isArray(students) || students.length === 0) {
+        await transaction.rollback();
+        return this.sendValidationError(res, [], 'students array is required and must not be empty');
+      }
+
+      // Verify target year exists
+      const targetYear = await AcademicYear.findByPk(to_academic_year_id);
+      if (!targetYear) {
+        await transaction.rollback();
+        return this.sendError(res, 'Target academic year not found', 404);
+      }
+
+      const results = { promoted: [], detained: [], passedOut: [], skipped: [] };
+
+      for (const item of students) {
+        const { student_id, new_grade, new_section, status = 'PROMOTED' } = item;
+
+        // Find current session record
+        const currentSession = await StudentAcademicSession.findOne({
+          where: { student_id, academic_year_id: from_academic_year_id, school_id },
+          transaction
+        });
+
+        if (!currentSession) {
+          results.skipped.push(student_id);
+          continue;
+        }
+
+        // Update current session status
+        await currentSession.update({ status }, { transaction });
+
+        if (status === 'PROMOTED' || status === 'DETAINED') {
+          // Check if already enrolled in target year
+          const existingNext = await StudentAcademicSession.findOne({
+            where: { student_id, academic_year_id: to_academic_year_id },
+            transaction
+          });
+
+          if (!existingNext) {
+            await StudentAcademicSession.create({
+              student_id,
+              academic_year_id: to_academic_year_id,
+              school_id,
+              grade: new_grade || currentSession.grade,
+              section: new_section || currentSession.section,
+              status: 'ENROLLED'
+            }, { transaction });
+          }
+
+          // Update student's current grade/section
+          if (status === 'PROMOTED' && new_grade) {
+            await Student.update(
+              { grade: new_grade, section: new_section || currentSession.section },
+              { where: { id: student_id }, transaction }
+            );
+          }
+
+          if (status === 'PROMOTED') results.promoted.push(student_id);
+          else results.detained.push(student_id);
+
+        } else if (status === 'PASSED_OUT') {
+          // Mark student as inactive
+          await Student.update({ status: 'inactive' }, { where: { id: student_id }, transaction });
+          results.passedOut.push(student_id);
+        }
+      }
+
+      await transaction.commit();
+
+      return this.sendResponse(res, {
+        summary: {
+          promoted: results.promoted.length,
+          detained: results.detained.length,
+          passedOut: results.passedOut.length,
+          skipped: results.skipped.length
+        },
+        details: results
+      }, `Bulk promotion completed: ${results.promoted.length} promoted, ${results.detained.length} detained, ${results.passedOut.length} passed out.`);
+
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Error promoting students:', error);
+      return this.sendError(res, 'Failed to promote students: ' + error.message, 500);
     }
   }
 }

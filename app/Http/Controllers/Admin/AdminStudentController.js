@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Student, BusRoute, BusStop, Parent, SchoolSubscription } = require('../../../Models');
+const { Student, BusRoute, BusStop, Parent, SchoolSubscription, SchoolClass } = require('../../../Models');
 const { Op, where, fn, col } = require('sequelize');
 const StudentResource = require('../../Resources/Student/StudentResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -41,6 +41,7 @@ class AdminStudentController extends BaseController {
         const cleanGrade = grade.replace(/^Grade\s+/i, '').trim();
         whereClause[Op.or] = [
           { grade: { [Op.like]: `%${cleanGrade}%` } },
+          { class_id: grade },
           { class_id: { [Op.like]: `%${cleanGrade}%` } }
         ];
       }
@@ -82,7 +83,8 @@ class AdminStudentController extends BaseController {
         include: [
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
-          { model: Parent, as: 'parent' }
+          { model: Parent, as: 'parent' },
+          { model: SchoolClass, as: 'schoolClass' }
         ],
         order: [['createdAt', 'DESC']],
         limit: limitNum,
@@ -120,7 +122,8 @@ class AdminStudentController extends BaseController {
         include: [
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
-          { model: Parent, as: 'parent' }
+          { model: Parent, as: 'parent' },
+          { model: SchoolClass, as: 'schoolClass' }
         ]
       });
 
@@ -144,6 +147,7 @@ class AdminStudentController extends BaseController {
         first_name,
         last_name,
         admission_number,
+        class_id,
         grade,
         section,
         gender,
@@ -220,13 +224,27 @@ class AdminStudentController extends BaseController {
         parent_id = parent.id;
       }
 
+      // Lookup class details if class_id provided
+      let finalGrade = grade;
+      let finalSection = section;
+      let finalClassId = class_id || null;
+
+      if (finalClassId) {
+        const cls = await SchoolClass.findByPk(finalClassId);
+        if (cls) {
+          finalGrade = `${cls.class_name}-${cls.section}`;
+          finalSection = cls.section;
+        }
+      }
+
       const student = await Student.create({
         school_id: parseInt(targetSchoolId, 10),
         first_name,
         last_name,
         admission_number: admission_number || `ADM-${Date.now().toString().slice(-4)}`,
-        grade: grade || 'Grade 10-A',
-        section: section || 'A',
+        class_id: finalClassId,
+        grade: finalGrade || 'Grade 10-A',
+        section: finalSection || 'A',
         gender: gender || 'male',
         dob: dob || null,
         guardian_name: guardian_name || null,
@@ -241,7 +259,16 @@ class AdminStudentController extends BaseController {
         status: 'active'
       });
 
-      const studentData = new StudentResource(student).toJson();
+      const fullStudent = await Student.findByPk(student.id, {
+        include: [
+          { model: BusRoute, as: 'busRoute' },
+          { model: BusStop, as: 'busStop' },
+          { model: Parent, as: 'parent' },
+          { model: SchoolClass, as: 'schoolClass' }
+        ]
+      });
+
+      const studentData = new StudentResource(fullStudent).toJson();
       return this.sendResponse(res, studentData, 'Student admission created successfully', 201);
     } catch (error) {
       if (req.file) removeFile(req.file);
@@ -273,6 +300,7 @@ class AdminStudentController extends BaseController {
         first_name,
         last_name,
         admission_number,
+        class_id,
         grade,
         section,
         gender,
@@ -300,11 +328,21 @@ class AdminStudentController extends BaseController {
         }
       }
 
+      const targetClassId = class_id || (grade && !isNaN(grade) ? grade : null);
+      if (targetClassId) {
+        student.class_id = parseInt(targetClassId, 10);
+        const cls = await SchoolClass.findByPk(targetClassId);
+        if (cls) {
+          student.grade = `${cls.class_name}-${cls.section}`;
+          student.section = cls.section;
+        }
+      }
+
       if (first_name) student.first_name = first_name;
       if (last_name) student.last_name = last_name;
       if (admission_number) student.admission_number = admission_number;
-      if (grade) student.grade = grade;
-      if (section) student.section = section;
+      if (grade && !class_id) student.grade = grade;
+      if (section && !class_id) student.section = section;
       if (gender) student.gender = gender;
       if (dob !== undefined) student.dob = dob || null;
       if (guardian_name !== undefined) student.guardian_name = guardian_name || null;
@@ -331,7 +369,9 @@ class AdminStudentController extends BaseController {
       const updatedStudent = await Student.findByPk(id, {
         include: [
           { model: BusRoute, as: 'busRoute' },
-          { model: BusStop, as: 'busStop' }
+          { model: BusStop, as: 'busStop' },
+          { model: Parent, as: 'parent' },
+          { model: SchoolClass, as: 'schoolClass' }
         ]
       });
 

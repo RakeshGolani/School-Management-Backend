@@ -11,7 +11,9 @@ const {
   AttendanceLog, 
   BusAttendanceLog,
   BillingSetting,
-  SchoolSubscription
+  SchoolSubscription,
+  AcademicYear,
+  StudentAcademicSession
 } = require('../app/Models');
 const bcrypt = require('bcryptjs');
 
@@ -33,6 +35,18 @@ async function seedDatabase() {
       password: defaultPassword,
       phone: '+91 9876543200',
       address: '102 Sector 5, Educational Hub, City'
+    });
+
+    // 1.1 Create Default Academic Year
+    console.log('Seeding Academic Year...');
+    const academicYear = await AcademicYear.create({
+      school_id: school.id,
+      year_name: '2026-2027',
+      start_date: '2026-06-01',
+      end_date: '2027-04-30',
+      is_active: true,
+      status: 'ACTIVE',
+      description: 'Standard Academic Session'
     });
 
     // 2. Create System Admin
@@ -61,7 +75,7 @@ async function seedDatabase() {
     const startsAt = new Date();
     const endsAt = new Date();
     endsAt.setDate(startsAt.getDate() + 30); // 30 days from now
-    await SchoolSubscription.create({
+    const sub1 = await SchoolSubscription.create({
       school_id: school.id,
       plan_type: 'monthly',
       status: 'active',
@@ -71,10 +85,83 @@ async function seedDatabase() {
       ends_at: endsAt
     });
 
+    // 2.3 Seed Subscription Transactions & Invoices
+    console.log('Seeding Transactions & Invoices...');
+    const { SubscriptionTransaction, SchoolInvoice } = require('../app/Models');
+
+    // Successful transaction
+    const txn1 = await SubscriptionTransaction.create({
+      school_id: school.id,
+      subscription_id: sub1.id,
+      gateway_transaction_id: 'TXN_PAY_9824104812',
+      amount: 2360.00,
+      currency: 'INR',
+      status: 'success',
+      payment_method: 'UPI / Razorpay'
+    });
+
+    await SchoolInvoice.create({
+      school_id: school.id,
+      transaction_id: txn1.id,
+      invoice_number: 'INV-2026-0001',
+      billing_date: startsAt,
+      amount_due: 2360.00,
+      amount_paid: 2360.00,
+      tax_amount: 360.00,
+      status: 'paid',
+      invoice_pdf_url: null
+    });
+
+    // Previous transaction
+    const prevStartsAt = new Date();
+    prevStartsAt.setDate(prevStartsAt.getDate() - 35);
+
+    const txn2 = await SubscriptionTransaction.create({
+      school_id: school.id,
+      subscription_id: sub1.id,
+      gateway_transaction_id: 'TXN_PAY_8841029411',
+      amount: 2360.00,
+      currency: 'INR',
+      status: 'success',
+      payment_method: 'Credit Card / Stripe',
+      createdAt: prevStartsAt
+    });
+
+    await SchoolInvoice.create({
+      school_id: school.id,
+      transaction_id: txn2.id,
+      invoice_number: 'INV-2026-0000',
+      billing_date: prevStartsAt,
+      amount_due: 2360.00,
+      amount_paid: 2360.00,
+      tax_amount: 360.00,
+      status: 'paid',
+      invoice_pdf_url: null,
+      createdAt: prevStartsAt
+    });
+
     // 3. Create Default School Classes
     console.log('Seeding School Classes...');
     const { SchoolClass } = require('../app/Models');
-    await SchoolClass.create({
+    const class10A = await SchoolClass.create({
+      school_id: school.id,
+      class_name: 'Grade 10',
+      section: 'A',
+      room_number: '301',
+      capacity: 40,
+      status: 'active'
+    });
+
+    const class9B = await SchoolClass.create({
+      school_id: school.id,
+      class_name: 'Grade 9',
+      section: 'B',
+      room_number: '202',
+      capacity: 40,
+      status: 'active'
+    });
+
+    const class8A = await SchoolClass.create({
       school_id: school.id,
       class_name: 'Grade 8',
       section: 'A',
@@ -83,9 +170,27 @@ async function seedDatabase() {
       status: 'active'
     });
 
+    const class5B = await SchoolClass.create({
+      school_id: school.id,
+      class_name: 'Grade 5',
+      section: 'B',
+      room_number: '105',
+      capacity: 35,
+      status: 'active'
+    });
+
+    const class1A = await SchoolClass.create({
+      school_id: school.id,
+      class_name: 'Grade 1',
+      section: 'A',
+      room_number: '102',
+      capacity: 30,
+      status: 'active'
+    });
+
     // 4. Create Class Teachers
     console.log('Seeding Teachers...');
-    await Teacher.create({
+    const teacher1 = await Teacher.create({
       school_id: school.id,
       employee_id: 'EMP-1001',
       name: 'Vikram Mehta',
@@ -99,7 +204,7 @@ async function seedDatabase() {
       status: 'active'
     });
 
-    await Teacher.create({
+    const teacher2 = await Teacher.create({
       school_id: school.id,
       employee_id: 'EMP-1002',
       name: 'Sunita Sharma',
@@ -127,18 +232,7 @@ async function seedDatabase() {
       status: 'active'
     });
 
-    // Seed relational teacher class assignment for Rajesh Kulkarni
-    const { TeacherClassAssignment } = require('../app/Models');
-    const classRecord = await SchoolClass.findOne({ where: { school_id: school.id, class_name: 'Grade 8', section: 'A' } });
-    if (classRecord) {
-      await TeacherClassAssignment.create({
-        school_id: school.id,
-        teacher_id: teacher3.id,
-        class_id: classRecord.id
-      });
-    }
-
-    await Teacher.create({
+    const teacher4 = await Teacher.create({
       school_id: school.id,
       employee_id: 'EMP-1004',
       name: 'Pooja Verma',
@@ -151,6 +245,13 @@ async function seedDatabase() {
       nfc_card_uid: 'TEACHER_CARD_004',
       status: 'active'
     });
+
+    // Seed relational teacher class assignments for the active session
+    const { TeacherClassAssignment } = require('../app/Models');
+    if (class10A) await TeacherClassAssignment.create({ school_id: school.id, teacher_id: teacher1.id, class_id: class10A.id, academic_year_id: academicYear.id });
+    if (class9B)  await TeacherClassAssignment.create({ school_id: school.id, teacher_id: teacher2.id, class_id: class9B.id,  academic_year_id: academicYear.id });
+    if (class8A)  await TeacherClassAssignment.create({ school_id: school.id, teacher_id: teacher3.id, class_id: class8A.id,  academic_year_id: academicYear.id });
+    if (class5B)  await TeacherClassAssignment.create({ school_id: school.id, teacher_id: teacher4.id, class_id: class5B.id,  academic_year_id: academicYear.id });
 
     // 4. Create Parents
     console.log('Seeding Parents...');
@@ -230,13 +331,14 @@ async function seedDatabase() {
       first_name: 'Rahul',
       last_name: 'Gupta',
       admission_number: 'ADM-1001',
+      roll_number: '101',
       grade: 'Grade 10-A',
       section: 'A',
       gender: 'male',
       guardian_name: 'Ramesh Gupta',
       guardian_phone: '9876543210',
       parent_id: parent1.id,
-      class_id: '10-A',
+      class_id: class10A.id,
       nfc_card_uid: 'STUDENT_CARD_001',
       is_bus_service_enabled: true,
       bus_route_id: route1.id,
@@ -249,13 +351,14 @@ async function seedDatabase() {
       first_name: 'Rohan',
       last_name: 'Gupta',
       admission_number: 'ADM-1002',
+      roll_number: '102',
       grade: 'Grade 10-A',
       section: 'A',
       gender: 'male',
       guardian_name: 'Ramesh Gupta',
       guardian_phone: '9876543210',
       parent_id: parent1.id,
-      class_id: '10-A',
+      class_id: class10A.id,
       nfc_card_uid: 'STUDENT_CARD_002',
       is_bus_service_enabled: false,
       status: 'active'
@@ -266,13 +369,14 @@ async function seedDatabase() {
       first_name: 'Priya',
       last_name: 'Patel',
       admission_number: 'ADM-1003',
+      roll_number: '103',
       grade: 'Grade 9-B',
       section: 'B',
       gender: 'female',
       guardian_name: 'Suresh Patel',
       guardian_phone: '9876543211',
       parent_id: parent2.id,
-      class_id: '9-B',
+      class_id: class9B.id,
       nfc_card_uid: 'STUDENT_CARD_003',
       is_bus_service_enabled: true,
       bus_route_id: route2.id,
@@ -285,12 +389,13 @@ async function seedDatabase() {
       first_name: 'Aarav',
       last_name: 'Shah',
       admission_number: 'ADM-1004',
+      roll_number: '104',
       grade: 'Grade 8-A',
       section: 'A',
       gender: 'male',
       guardian_name: 'Meeta Shah',
       guardian_phone: '9876543212',
-      class_id: '8-A',
+      class_id: class8A.id,
       nfc_card_uid: 'STUDENT_CARD_004',
       is_bus_service_enabled: false,
       status: 'active'
@@ -301,18 +406,40 @@ async function seedDatabase() {
       first_name: 'Ananya',
       last_name: 'Deshmukh',
       admission_number: 'ADM-1005',
+      roll_number: '105',
       grade: 'Grade 5-B',
       section: 'B',
       gender: 'female',
       guardian_name: 'Vikram Deshmukh',
       guardian_phone: '9876543213',
-      class_id: '5-B',
+      class_id: class5B.id,
       nfc_card_uid: 'STUDENT_CARD_005',
       is_bus_service_enabled: true,
       bus_route_id: route1.id,
       bus_stop_id: stop1.id,
       status: 'active'
     });
+
+    // 8.1 Seed Student Academic Sessions for 2026-2027
+    console.log('Seeding Student Academic Sessions...');
+    const sessionData = [
+      { student: student1, grade: 'Grade 10-A', section: 'A', roll_number: '101' },
+      { student: student2, grade: 'Grade 10-A', section: 'A', roll_number: '102' },
+      { student: student3, grade: 'Grade 9-B',  section: 'B', roll_number: '103' },
+      { student: student4, grade: 'Grade 8-A',  section: 'A', roll_number: '104' },
+      { student: student5, grade: 'Grade 5-B',  section: 'B', roll_number: '105' },
+    ];
+    for (const s of sessionData) {
+      await StudentAcademicSession.create({
+        student_id: s.student.id,
+        academic_year_id: academicYear.id,
+        school_id: school.id,
+        grade: s.grade,
+        section: s.section,
+        roll_number: s.roll_number,
+        status: 'ENROLLED'
+      });
+    }
 
     // 9. Attendance logs
     const yesterday = new Date();
@@ -321,6 +448,7 @@ async function seedDatabase() {
 
     await AttendanceLog.create({
       school_id: school.id,
+      academic_year_id: academicYear.id,
       student_id: student1.id,
       nfc_card_uid: 'STUDENT_CARD_001',
       date: yesterdayStr,
@@ -328,6 +456,97 @@ async function seedDatabase() {
       scan_timestamp: new Date(yesterdayStr + 'T07:55:00'),
       gate_name: 'Main Gate',
       status: 'SUCCESS'
+    });
+
+    // 10. Seed Student Fees and Payments
+    console.log('Seeding Fee Categories, Allocations, and Payments...');
+    const { FeeCategory, StudentFee, FeePayment } = require('../app/Models');
+
+    // Create fee categories
+    const tuitionFee = await FeeCategory.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      name: 'Monthly Tuition Fee',
+      amount: 4500.00,
+      due_date: '2026-08-30',
+      description: 'Monthly tuition fees for academic instruction.'
+    });
+
+    const sportsFee = await FeeCategory.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      name: 'Annual Sports Fee',
+      amount: 1500.00,
+      due_date: '2026-09-15',
+      description: 'Annual fee for sports and physical training facilities.'
+    });
+
+    const examFee = await FeeCategory.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      name: 'Term 1 Exam Fee',
+      amount: 800.00,
+      due_date: '2026-08-25',
+      description: 'Examination fee for Term 1.'
+    });
+
+    // Allocate fees to student1 (Nitin Verma, Grade 10-A)
+    const s1Tuition = await StudentFee.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      student_id: student1.id,
+      fee_category_id: tuitionFee.id,
+      amount: 4500.00,
+      paid_amount: 4500.00,
+      discount_amount: 0.00,
+      status: 'paid',
+      due_date: tuitionFee.due_date
+    });
+
+    await FeePayment.create({
+      school_id: school.id,
+      student_fee_id: s1Tuition.id,
+      amount_paid: 4500.00,
+      payment_date: '2026-08-05',
+      payment_mode: 'online',
+      reference_number: 'UPI_TXN_88421094',
+      remarks: 'Full payment via UPI',
+      receipt_number: 'REC-2026-08-0001'
+    });
+
+    // Allocate fees to student5 (Ananya Deshmukh, Grade 5-B) - Partially Paid
+    const s5Tuition = await StudentFee.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      student_id: student5.id,
+      fee_category_id: tuitionFee.id,
+      amount: 4500.00,
+      paid_amount: 2000.00,
+      discount_amount: 500.00, // Scholarship discount
+      status: 'partially_paid',
+      due_date: tuitionFee.due_date
+    });
+
+    await FeePayment.create({
+      school_id: school.id,
+      student_fee_id: s5Tuition.id,
+      amount_paid: 2000.00,
+      payment_date: '2026-08-08',
+      payment_mode: 'cash',
+      remarks: 'Paid cash at counter, discount applied',
+      receipt_number: 'REC-2026-08-0002'
+    });
+
+    // Allocate Term 1 Exam Fee to Nitin Verma - Unpaid
+    await StudentFee.create({
+      school_id: school.id,
+      academic_year_id: academicYear.id,
+      student_id: student1.id,
+      fee_category_id: examFee.id,
+      amount: 800.00,
+      paid_amount: 0.00,
+      status: 'unpaid',
+      due_date: examFee.due_date
     });
 
     console.log('All mock data seeded successfully!');

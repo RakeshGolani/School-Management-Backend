@@ -17,6 +17,10 @@ const AcademicYear = require('./AcademicYear');
 const StudentAcademicSession = require('./StudentAcademicSession');
 const TeacherClassAssignment = require('./TeacherClassAssignment');
 const SchoolClass = require('./SchoolClass');
+const FeeCategory = require('./FeeCategory');
+const StudentFee = require('./StudentFee');
+const FeePayment = require('./FeePayment');
+
 
 // 1. Parent - Student Relationships
 Parent.hasMany(Student, { foreignKey: 'parent_id', as: 'children' });
@@ -28,6 +32,9 @@ AcademicYear.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 
 School.hasMany(SchoolClass, { foreignKey: 'school_id', as: 'classes' });
 SchoolClass.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+SchoolClass.hasMany(Student, { foreignKey: 'class_id', as: 'students' });
+Student.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
 
 // 3. Student - AcademicYear / AcademicSession Relationships
 AcademicYear.hasMany(StudentAcademicSession, { foreignKey: 'academic_year_id', as: 'studentSessions' });
@@ -44,6 +51,8 @@ TeacherClassAssignment.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teach
 
 SchoolClass.hasMany(TeacherClassAssignment, { foreignKey: 'class_id', as: 'classAssignments' });
 TeacherClassAssignment.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
+
+TeacherClassAssignment.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
 
 Teacher.hasMany(SchoolClass, { foreignKey: 'class_teacher_id', as: 'managedClasses' });
 SchoolClass.belongsTo(Teacher, { foreignKey: 'class_teacher_id', as: 'classTeacher' });
@@ -103,6 +112,60 @@ SubscriptionTransaction.belongsTo(SchoolSubscription, { foreignKey: 'subscriptio
 SubscriptionTransaction.hasOne(SchoolInvoice, { foreignKey: 'transaction_id', as: 'invoice' });
 SchoolInvoice.belongsTo(SubscriptionTransaction, { foreignKey: 'transaction_id', as: 'transaction' });
 
+// 10. Student Fee Management Relationships
+School.hasMany(FeeCategory, { foreignKey: 'school_id', as: 'feeCategories' });
+FeeCategory.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+School.hasMany(StudentFee, { foreignKey: 'school_id', as: 'studentFees' });
+StudentFee.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+School.hasMany(FeePayment, { foreignKey: 'school_id', as: 'feePayments' });
+FeePayment.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+AcademicYear.hasMany(FeeCategory, { foreignKey: 'academic_year_id', as: 'feeCategories' });
+FeeCategory.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
+
+AcademicYear.hasMany(StudentFee, { foreignKey: 'academic_year_id', as: 'studentFees' });
+StudentFee.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
+
+Student.hasMany(StudentFee, { foreignKey: 'student_id', as: 'allocatedFees' });
+StudentFee.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+
+FeeCategory.hasMany(StudentFee, { foreignKey: 'fee_category_id', as: 'allocations' });
+StudentFee.belongsTo(FeeCategory, { foreignKey: 'fee_category_id', as: 'feeCategory' });
+
+StudentFee.hasMany(FeePayment, { foreignKey: 'student_fee_id', as: 'payments' });
+FeePayment.belongsTo(StudentFee, { foreignKey: 'student_fee_id', as: 'studentFee' });
+
+const PeriodSlot = require('./PeriodSlot');
+const Timetable = require('./Timetable');
+const TeacherProxy = require('./TeacherProxy');
+
+// 11. Timetable and Period Management Relationships
+School.hasMany(PeriodSlot, { foreignKey: 'school_id', as: 'periodSlots' });
+PeriodSlot.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+AcademicYear.hasMany(PeriodSlot, { foreignKey: 'academic_year_id', as: 'periodSlots' });
+PeriodSlot.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });
+
+SchoolClass.hasMany(Timetable, { foreignKey: 'class_id', as: 'timetables' });
+Timetable.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
+
+Teacher.hasMany(Timetable, { foreignKey: 'teacher_id', as: 'timetables' });
+Timetable.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
+
+PeriodSlot.hasMany(Timetable, { foreignKey: 'period_slot_id', as: 'timetables' });
+Timetable.belongsTo(PeriodSlot, { foreignKey: 'period_slot_id', as: 'periodSlot' });
+
+Timetable.hasMany(TeacherProxy, { foreignKey: 'timetable_id', as: 'proxies' });
+TeacherProxy.belongsTo(Timetable, { foreignKey: 'timetable_id', as: 'timetable' });
+
+Teacher.hasMany(TeacherProxy, { foreignKey: 'original_teacher_id', as: 'givenProxies' });
+TeacherProxy.belongsTo(Teacher, { foreignKey: 'original_teacher_id', as: 'originalTeacher' });
+
+Teacher.hasMany(TeacherProxy, { foreignKey: 'substitute_teacher_id', as: 'receivedProxies' });
+TeacherProxy.belongsTo(Teacher, { foreignKey: 'substitute_teacher_id', as: 'substituteTeacher' });
+
 module.exports = {
   sequelize,
   School,
@@ -122,5 +185,12 @@ module.exports = {
   AcademicYear,
   StudentAcademicSession,
   TeacherClassAssignment,
-  SchoolClass
+  SchoolClass,
+  FeeCategory,
+  StudentFee,
+  FeePayment,
+  PeriodSlot,
+  Timetable,
+  TeacherProxy
 };
+

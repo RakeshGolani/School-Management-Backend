@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Teacher, School, TeacherClassAssignment, SchoolClass, sequelize } = require('../../../Models');
+const { Teacher, School, TeacherClassAssignment, SchoolClass, AcademicYear, sequelize } = require('../../../Models');
 const { Op } = require('sequelize');
 const TeacherResource = require('../../Resources/Teacher/TeacherResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 /**
  * Helper to sync teacher_class_assignments relational records
  */
-async function syncTeacherClassAssignments(teacherId, schoolId, classAssignedStr, transaction) {
+async function syncTeacherClassAssignments(teacherId, schoolId, classAssignedStr, transaction, academicYearId = null) {
   if (classAssignedStr === undefined) return;
 
   await TeacherClassAssignment.destroy({
@@ -20,7 +20,6 @@ async function syncTeacherClassAssignments(teacherId, schoolId, classAssignedStr
 
   const classList = classAssignedStr.split(',').map(c => c.trim()).filter(Boolean);
   for (const itemStr of classList) {
-    // Parse "Grade 10-A" format or lookup SchoolClass by class_name & section
     const parts = itemStr.split('-');
     const className = parts[0] ? parts[0].trim() : itemStr;
     const section = parts[1] ? parts[1].trim() : 'A';
@@ -34,7 +33,8 @@ async function syncTeacherClassAssignments(teacherId, schoolId, classAssignedStr
       await TeacherClassAssignment.create({
         school_id: schoolId,
         teacher_id: teacherId,
-        class_id: clsRecord.id
+        class_id: clsRecord.id,
+        academic_year_id: academicYearId || null
       }, { transaction });
     }
   }
@@ -59,25 +59,20 @@ class TeacherController extends BaseController {
    */
   async index(req, res) {
     try {
-      const { search, subject, status, schoolId } = req.query;
+      const { search, subject, status, schoolId, academic_year_id } = req.query;
       const targetSchoolId = schoolId || req.headers['x-school-id'];
 
+      const pageNum = parseInt(req.query.page, 10) || 1;
+      const limitNum = parseInt(req.query.limit, 10) || 10;
+      const offset = (pageNum - 1) * limitNum;
+
       const whereClause = {};
-      if (targetSchoolId) {
-        whereClause.school_id = targetSchoolId;
-      }
-
-      if (status) {
-        whereClause.status = status;
-      }
-
-      if (subject && subject !== 'all') {
-        whereClause.subject = { [Op.like]: `%${subject}%` };
-      }
-
+      if (targetSchoolId) whereClause.school_id = targetSchoolId;
+      if (status) whereClause.status = status;
+      if (subject && subject !== 'all') whereClause.subject = { [Op.like]: `%${subject}%` };
       if (search) {
         const trimmedSearch = search.trim();
-        const searchCondition = [
+        whereClause[Op.or] = [
           { name: { [Op.like]: `%${trimmedSearch}%` } },
           { email: { [Op.like]: `%${trimmedSearch}%` } },
           { employee_id: { [Op.like]: `%${trimmedSearch}%` } },
@@ -85,42 +80,43 @@ class TeacherController extends BaseController {
           { nfc_card_uid: { [Op.like]: `%${trimmedSearch}%` } },
           { phone: { [Op.like]: `%${trimmedSearch}%` } }
         ];
-
-        whereClause[Op.or] = searchCondition;
       }
 
-      const pageNum = parseInt(req.query.page, 10) || 1;
-      const limitNum = parseInt(req.query.limit, 10) || 10;
-      const offset = (pageNum - 1) * limitNum;
+      // Include teacher class assignments scoped to academic_year_id if supplied
+      const assignmentInclude = {
+        model: TeacherClassAssignment,
+        as: 'assignedClasses',
+        required: false,
+        include: [{ model: SchoolClass, as: 'schoolClass' }]
+      };
+
+      if (academic_year_id) {
+        assignmentInclude.where = { academic_year_id };
+      }
 
       const { count, rows: teachers } = await Teacher.findAndCountAll({
         where: whereClause,
-        include: [
-          { 
-            model: TeacherClassAssignment, 
-            as: 'assignedClasses',
-            include: [{ model: SchoolClass, as: 'schoolClass' }]
-          }
-        ],
+        include: [assignmentInclude],
         order: [['createdAt', 'DESC']],
         limit: limitNum,
-        offset: offset,
+        offset,
         distinct: true
       });
 
-      const teacherList = TeacherResource.collection(teachers);
-      const totalPages = Math.ceil(count / limitNum);
+      // Aggregate stats for stats cards
+      const activeCount = await Teacher.count({
+        where: { ...whereClause, status: 'active' }
+      });
+      const nfcCount = await Teacher.count({
+        where: { ...whereClause, nfc_card_uid: { [Op.ne]: null } }
+      });
 
+      const totalPages = Math.ceil(count / limitNum);
       return res.status(200).json({
         status: 'success',
         message: 'Teachers retrieved successfully',
-        data: teacherList,
-        meta: {
-          total: count,
-          page: pageNum,
-          limit: limitNum,
-          totalPages: totalPages
-        }
+        data: TeacherResource.collection(teachers),
+        meta: { total: count, page: pageNum, limit: limitNum, totalPages, active_count: activeCount, nfc_count: nfcCount }
       });
     } catch (error) {
       console.error('Error fetching teachers:', error);
@@ -139,7 +135,10 @@ class TeacherController extends BaseController {
           { 
             model: TeacherClassAssignment, 
             as: 'assignedClasses',
-            include: [{ model: SchoolClass, as: 'schoolClass' }]
+            include: [
+              { model: SchoolClass, as: 'schoolClass' },
+              { model: AcademicYear, as: 'academicYear' }
+            ]
           }
         ]
       });
@@ -232,8 +231,9 @@ class TeacherController extends BaseController {
         status: 'active'
       }, { transaction });
 
-      // Sync relational table teacher_class_assignments
-      await syncTeacherClassAssignments(teacher.id, teacher.school_id, class_assigned, transaction);
+      // Sync relational table teacher_class_assignments (with academic_year_id)
+      const yearId = req.body.academic_year_id ? parseInt(req.body.academic_year_id) : null;
+      await syncTeacherClassAssignments(teacher.id, teacher.school_id, class_assigned, transaction, yearId);
 
       await transaction.commit();
 

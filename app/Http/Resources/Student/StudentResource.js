@@ -23,8 +23,27 @@ class StudentResource extends BaseResource {
       full_name: `${this.resource.first_name} ${this.resource.last_name}`,
       admissionNumber: this.resource.admission_number || `ADM-${this.resource.id + 1000}`,
       admission_number: this.resource.admission_number || `ADM-${this.resource.id + 1000}`,
-      grade: this.resource.grade || 'Grade 10-A',
-      section: this.resource.section || 'A',
+      rollNumber: this.resource.roll_number || `10${this.resource.id}`,
+      roll_number: this.resource.roll_number || `10${this.resource.id}`,
+      classId: this.resource.class_id || null,
+      class_id: this.resource.class_id || null,
+      grade: (() => {
+        if (this.resource.schoolClass) {
+          const cName = this.resource.schoolClass.class_name;
+          const sec = this.resource.schoolClass.section;
+          return cName.toLowerCase().startsWith('grade') ? `${cName}-${sec}` : `Grade ${cName}-${sec}`;
+        }
+        if (this.resource.grade) {
+          return this.resource.grade.toLowerCase().startsWith('grade') ? this.resource.grade : `Grade ${this.resource.grade}`;
+        }
+        return 'N/A';
+      })(),
+      section: this.resource.schoolClass ? this.resource.schoolClass.section : (this.resource.section || 'A'),
+      schoolClass: this.resource.schoolClass ? {
+        id: this.resource.schoolClass.id,
+        className: this.resource.schoolClass.class_name,
+        section: this.resource.schoolClass.section
+      } : null,
       gender: this.resource.gender || 'male',
       dob: this.resource.dob || null,
       guardianName: this.resource.guardian_name || 'Guardian',
