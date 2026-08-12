@@ -1,8 +1,36 @@
 const BaseController = require('../BaseController');
-const { School } = require('../../../Models');
+const { School, AcademicYear } = require('../../../Models');
 const SchoolResource = require('../../Resources/School/SchoolResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
 const bcrypt = require('bcryptjs');
+
+/**
+ * Helper to generate default current Academic Year details dynamically
+ */
+function getDefaultAcademicYearData(schoolId) {
+  const now = new Date();
+  const startYear = now.getFullYear();
+  const endYear = startYear + 1;
+  const yearName = `${startYear}-${endYear}`;
+
+  // Current Date in YYYY-MM-DD format
+  const startDateStr = now.toISOString().split('T')[0];
+
+  // End Date: 1 year from registration date in YYYY-MM-DD format
+  const endDateObj = new Date(now);
+  endDateObj.setFullYear(endDateObj.getFullYear() + 1);
+  const endDateStr = endDateObj.toISOString().split('T')[0];
+
+  return {
+    school_id: schoolId,
+    year_name: yearName,
+    start_date: startDateStr,
+    end_date: endDateStr,
+    is_active: true,
+    status: 'ACTIVE',
+    description: `Default Academic Session ${yearName}`
+  };
+}
 
 /**
  * SchoolController
@@ -56,6 +84,9 @@ class SchoolController extends BaseController {
         address: address || null,
         status: 'active'
       });
+
+      // Auto-create active Current Academic Year for the new school
+      await AcademicYear.create(getDefaultAcademicYearData(school.id));
 
       const schoolData = new SchoolResource(school).toJson();
       return this.sendResponse(res, schoolData, 'School account created successfully', 201);
