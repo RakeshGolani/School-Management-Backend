@@ -44,7 +44,7 @@ module.exports = {
       },
       dob: {
         type: Sequelize.DATEONLY,
-        allowNull: true,
+        allowNull: false,
       },
       guardian_name: {
         type: Sequelize.STRING,

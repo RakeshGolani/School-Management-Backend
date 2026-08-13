@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Student, BusRoute, BusStop, Parent, SchoolSubscription, SchoolClass } = require('../../../Models');
+const { Student, BusRoute, BusStop, Parent, SchoolSubscription, SchoolClass, Teacher } = require('../../../Models');
 const { Op, where, fn, col } = require('sequelize');
 const StudentResource = require('../../Resources/Student/StudentResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -123,7 +123,11 @@ class AdminStudentController extends BaseController {
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
           { model: Parent, as: 'parent' },
-          { model: SchoolClass, as: 'schoolClass' }
+          { 
+            model: SchoolClass, 
+            as: 'schoolClass',
+            include: [{ model: Teacher, as: 'classTeacher' }]
+          }
         ]
       });
 
@@ -155,6 +159,7 @@ class AdminStudentController extends BaseController {
         guardian_name,
         guardian_email,
         guardian_phone,
+        guardian_address,
         alternate_phone,
         nfc_card_uid,
         is_bus_service_enabled,
@@ -218,6 +223,7 @@ class AdminStudentController extends BaseController {
             name: guardian_name || 'Guardian',
             email: guardian_email,
             phone: guardian_phone || null,
+            address: guardian_address || null,
             password: defaultPassword
           });
         }
@@ -307,6 +313,7 @@ class AdminStudentController extends BaseController {
         dob,
         guardian_name,
         guardian_phone,
+        guardian_address,
         alternate_phone,
         nfc_card_uid,
         is_bus_service_enabled,
@@ -365,6 +372,13 @@ class AdminStudentController extends BaseController {
       }
 
       await student.save();
+
+      if (guardian_address !== undefined && student.parent_id) {
+        await Parent.update(
+          { address: guardian_address || null },
+          { where: { id: student.parent_id } }
+        );
+      }
 
       const updatedStudent = await Student.findByPk(id, {
         include: [

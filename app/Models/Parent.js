@@ -29,7 +29,7 @@ const Parent = sequelize.define('Parent', {
   },
   address: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: false
   }
 }, {
   tableName: 'parents',

@@ -67,6 +67,8 @@ class StudentResource extends BaseResource {
       guardian_name: this.resource.guardian_name || 'Guardian',
       guardianEmail: this.resource.parent ? this.resource.parent.email : '',
       guardian_email: this.resource.parent ? this.resource.parent.email : '',
+      guardianAddress: this.resource.parent ? this.resource.parent.address : '',
+      guardian_address: this.resource.parent ? this.resource.parent.address : '',
       guardianPhone: this.resource.guardian_phone || '',
       guardian_phone: this.resource.guardian_phone || '',
       alternatePhone: this.resource.alternate_phone || '',

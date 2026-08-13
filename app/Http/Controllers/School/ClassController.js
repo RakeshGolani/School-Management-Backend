@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { SchoolClass, Teacher, Student, TeacherClassAssignment, sequelize } = require('../../../Models');
+const { SchoolClass, Teacher, Student, Parent, TeacherClassAssignment, sequelize } = require('../../../Models');
 const { Op } = require('sequelize');
 
 class ClassController extends BaseController {
@@ -162,8 +162,13 @@ class ClassController extends BaseController {
             as: 'students',
             attributes: [
               'id', 'first_name', 'last_name', 'admission_number', 'grade', 'section', 
-              'gender', 'guardian_name', 'guardian_phone', 'photo', 'image_url', 'nfc_card_uid', 'status'
-            ]
+              'gender', 'dob', 'guardian_name', 'guardian_phone', 'photo', 'image_url', 'nfc_card_uid', 'status'
+            ],
+            include: [{
+              model: Parent,
+              as: 'parent',
+              attributes: ['id', 'address']
+            }]
           }
         ]
       });
@@ -204,6 +209,14 @@ class ClassController extends BaseController {
 
       const classData = schoolClass.toJSON();
       classData.classTeacher = resolvedTeacher ? (resolvedTeacher.toJSON ? resolvedTeacher.toJSON() : resolvedTeacher) : null;
+      if (classData.students) {
+        classData.students = classData.students.map(s => {
+          if (s.parent && s.parent.address) {
+            s.guardian_address = s.parent.address;
+          }
+          return s;
+        });
+      }
 
       return this.sendResponse(res, {
         class: classData,

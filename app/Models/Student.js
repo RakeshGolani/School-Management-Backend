@@ -41,7 +41,7 @@ const Student = sequelize.define('Student', {
   },
   dob: {
     type: DataTypes.DATEONLY,
-    allowNull: true
+    allowNull: false
   },
   guardian_name: {
     type: DataTypes.STRING,

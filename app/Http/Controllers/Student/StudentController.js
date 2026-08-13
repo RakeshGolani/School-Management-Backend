@@ -281,6 +281,7 @@ class StudentController extends BaseController {
         guardian_name,
         guardian_email,
         guardian_phone,
+        guardian_address,
         alternate_phone,
         nfc_card_uid,
         is_bus_service_enabled,
@@ -348,6 +349,7 @@ class StudentController extends BaseController {
             name: guardian_name || 'Guardian',
             email: guardian_email,
             phone: guardian_phone || null,
+            address: guardian_address || null,
             password: defaultPassword
           }, { transaction });
         }
@@ -433,7 +435,7 @@ class StudentController extends BaseController {
 
       const {
         first_name, last_name, admission_number, roll_number, grade, section, gender, dob,
-        guardian_name, guardian_phone, alternate_phone, nfc_card_uid,
+        guardian_name, guardian_phone, guardian_address, alternate_phone, nfc_card_uid,
         is_bus_service_enabled, bus_route_id, bus_stop_id, status, class_id
       } = req.body;
 
@@ -477,6 +479,13 @@ class StudentController extends BaseController {
       }
 
       await student.save();
+
+      if (guardian_address !== undefined && student.parent_id) {
+        await Parent.update(
+          { address: guardian_address || null },
+          { where: { id: student.parent_id } }
+        );
+      }
 
       const updatedStudent = await Student.findByPk(id, {
         include: [
