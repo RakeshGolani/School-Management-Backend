@@ -6,9 +6,16 @@ const BaseResource = require('../BaseResource');
  */
 class StudentResource extends BaseResource {
   toArray() {
-    let photoUrl = this.resource.photo || null;
-    if (photoUrl && photoUrl.startsWith('/uploads/')) {
-      photoUrl = `http://localhost:5000${photoUrl}`;
+    const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+    let photoUrl = null;
+    if (this.resource.photo && typeof this.resource.photo === 'string' && this.resource.photo.trim() !== '' && !this.resource.photo.includes('ui-avatars.com')) {
+      if (this.resource.photo.startsWith('http://') || this.resource.photo.startsWith('https://') || this.resource.photo.startsWith('data:image')) {
+        photoUrl = this.resource.photo;
+      } else {
+        photoUrl = `${baseUrl}${this.resource.photo.startsWith('/') ? this.resource.photo : `/${this.resource.photo}`}`;
+      }
+    } else if (this.resource.image_url && !this.resource.image_url.includes('ui-avatars.com')) {
+      photoUrl = this.resource.image_url;
     }
 
     return {
@@ -42,7 +49,17 @@ class StudentResource extends BaseResource {
       schoolClass: this.resource.schoolClass ? {
         id: this.resource.schoolClass.id,
         className: this.resource.schoolClass.class_name,
-        section: this.resource.schoolClass.section
+        class_name: this.resource.schoolClass.class_name,
+        section: this.resource.schoolClass.section,
+        roomNumber: this.resource.schoolClass.room_number,
+        room_number: this.resource.schoolClass.room_number,
+        classTeacher: this.resource.schoolClass.classTeacher ? {
+          id: this.resource.schoolClass.classTeacher.id,
+          name: this.resource.schoolClass.classTeacher.name,
+          email: this.resource.schoolClass.classTeacher.email,
+          phone: this.resource.schoolClass.classTeacher.phone,
+          employeeId: this.resource.schoolClass.classTeacher.employee_id
+        } : null
       } : null,
       gender: this.resource.gender || 'male',
       dob: this.resource.dob || null,
@@ -57,6 +74,7 @@ class StudentResource extends BaseResource {
       parentId: this.resource.parent_id || null,
       parent_id: this.resource.parent_id || null,
       photo: photoUrl,
+      image_url: photoUrl,
       nfcCardUid: this.resource.nfc_card_uid || null,
       nfc_card_uid: this.resource.nfc_card_uid || null,
       isBusServiceEnabled: Boolean(this.resource.is_bus_service_enabled),

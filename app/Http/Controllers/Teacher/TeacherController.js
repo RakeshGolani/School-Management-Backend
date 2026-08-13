@@ -205,6 +205,41 @@ class TeacherController extends BaseController {
         }
       }
 
+      // Check unique class_assigned if provided (1 Teacher = 1 Class Teacher)
+      if (class_assigned && class_assigned.trim()) {
+        const firstClass = class_assigned.split(',')[0].trim();
+        const parts = firstClass.split('-');
+        const className = parts[0] ? parts[0].trim() : firstClass;
+        const section = parts[1] ? parts[1].trim() : 'A';
+
+        const targetClassRecord = await SchoolClass.findOne({
+          where: { school_id: parseInt(targetSchoolId, 10), class_name: className, section: section },
+          transaction
+        });
+
+        if (targetClassRecord) {
+          const existingAssignment = await TeacherClassAssignment.findOne({
+            where: {
+              school_id: parseInt(targetSchoolId, 10),
+              class_id: targetClassRecord.id
+            },
+            include: [{ model: Teacher, as: 'teacher' }],
+            transaction
+          });
+
+          if (existingAssignment && existingAssignment.teacher) {
+            await transaction.rollback();
+            if (req.file) removeFile(req.file);
+            return this.sendValidationError(
+              res,
+              { class_assigned: [`Class ${firstClass} is already assigned to ${existingAssignment.teacher.name}. 1 teacher can only be assigned as class teacher for 1 class.`] },
+              'Validation failed',
+              400
+            );
+          }
+        }
+      }
+
       let photoPath = null;
       if (req.file) {
         photoPath = `/uploads/teachers/${req.file.filename}`;
@@ -304,6 +339,41 @@ class TeacherController extends BaseController {
             'Validation failed',
             400
           );
+        }
+      }
+
+      if (class_assigned && class_assigned.trim()) {
+        const firstClass = class_assigned.split(',')[0].trim();
+        const parts = firstClass.split('-');
+        const className = parts[0] ? parts[0].trim() : firstClass;
+        const section = parts[1] ? parts[1].trim() : 'A';
+
+        const targetClassRecord = await SchoolClass.findOne({
+          where: { school_id: teacher.school_id, class_name: className, section: section },
+          transaction
+        });
+
+        if (targetClassRecord) {
+          const existingAssignment = await TeacherClassAssignment.findOne({
+            where: {
+              school_id: teacher.school_id,
+              class_id: targetClassRecord.id,
+              teacher_id: { [Op.ne]: teacher.id }
+            },
+            include: [{ model: Teacher, as: 'teacher' }],
+            transaction
+          });
+
+          if (existingAssignment && existingAssignment.teacher) {
+            await transaction.rollback();
+            if (req.file) removeFile(req.file);
+            return this.sendValidationError(
+              res,
+              { class_assigned: [`Class ${firstClass} is already assigned to ${existingAssignment.teacher.name}.`] },
+              'Validation failed',
+              400
+            );
+          }
         }
       }
 

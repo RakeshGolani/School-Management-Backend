@@ -8,7 +8,8 @@ class SchoolResource extends BaseResource {
   toArray() {
     let logoUrl = this.resource.logo || null;
     if (logoUrl && logoUrl.startsWith('/uploads/')) {
-      logoUrl = `http://localhost:5000${logoUrl}`;
+      const backendUrl = process.env.APP_URL || 'http://localhost:5000';
+      logoUrl = `${backendUrl}${logoUrl}`;
     }
 
     return {

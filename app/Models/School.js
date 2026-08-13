@@ -48,6 +48,20 @@ const School = sequelize.define('School', {
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'pending'),
     defaultValue: 'active'
+  },
+  logo_url: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const logo = this.getDataValue('logo');
+      if (logo && typeof logo === 'string' && logo.trim() !== '') {
+        if (logo.startsWith('http://') || logo.startsWith('https://') || logo.startsWith('data:image')) {
+          return logo;
+        }
+        const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+        return `${baseUrl}${logo.startsWith('/') ? logo : `/${logo}`}`;
+      }
+      return null;
+    }
   }
 }, {
   tableName: 'schools',

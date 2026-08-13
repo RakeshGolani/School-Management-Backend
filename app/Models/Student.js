@@ -92,15 +92,14 @@ const Student = sequelize.define('Student', {
     type: DataTypes.VIRTUAL,
     get() {
       const photo = this.getDataValue('photo');
-      if (photo && typeof photo === 'string' && photo.trim() !== '') {
-        return photo;
+      if (photo && typeof photo === 'string' && photo.trim() !== '' && !photo.includes('ui-avatars.com')) {
+        if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:image')) {
+          return photo;
+        }
+        const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+        return `${baseUrl}${photo.startsWith('/') ? photo : `/${photo}`}`;
       }
-      const firstName = this.getDataValue('first_name') || '';
-      const lastName = this.getDataValue('last_name') || '';
-      const fullName = `${firstName} ${lastName}`.trim() || 'Student';
-      const gender = this.getDataValue('gender');
-      const bg = gender === 'female' ? 'ec4899' : '0284c7';
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=${bg}&color=fff&bold=true`;
+      return null;
     }
   }
 }, {

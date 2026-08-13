@@ -81,6 +81,11 @@ router.get('/timetable/class/:class_id', (req, res) => TimetableController.getCl
 router.get('/timetable/teacher/:teacher_id', (req, res) => TimetableController.getTeacherTimetable(req, res));
 router.post('/timetable/proxy', (req, res) => TimetableController.assignProxy(req, res));
 
+// Student Academic Sessions & Promotion Routes
+const StudentController = require('../app/Http/Controllers/Student/StudentController');
+router.get('/student-sessions', (req, res) => StudentController.getStudentSessions(req, res));
+router.post('/student-sessions/promote', (req, res) => StudentController.promoteStudents(req, res));
+
 module.exports = router;
 
 

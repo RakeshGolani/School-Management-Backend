@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Student, BusRoute, BusStop, Parent, SchoolSubscription, AcademicYear, StudentAcademicSession, SchoolClass, sequelize } = require('../../../Models');
+const { Student, BusRoute, BusStop, Parent, Teacher, SchoolSubscription, AcademicYear, StudentAcademicSession, SchoolClass, sequelize } = require('../../../Models');
 const { Op, where, fn, col } = require('sequelize');
 const StudentResource = require('../../Resources/Student/StudentResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -240,7 +240,14 @@ class StudentController extends BaseController {
         include: [
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
-          { model: Parent, as: 'parent' }
+          { model: Parent, as: 'parent' },
+          { 
+            model: SchoolClass, 
+            as: 'schoolClass',
+            include: [
+              { model: Teacher, as: 'classTeacher', attributes: ['id', 'name', 'email', 'phone', 'employee_id'] }
+            ]
+          }
         ]
       });
 
@@ -281,7 +288,8 @@ class StudentController extends BaseController {
         bus_stop_id,
         school_id,
         schoolId,
-        academic_year_id
+        academic_year_id,
+        class_id
       } = req.body;
 
       const targetSchoolId = school_id || schoolId || req.query.schoolId || req.headers['x-school-id'];
@@ -349,6 +357,7 @@ class StudentController extends BaseController {
       // Create student record
       const student = await Student.create({
         school_id: parseInt(targetSchoolId, 10),
+        class_id: class_id ? parseInt(class_id, 10) : null,
         first_name,
         last_name,
         admission_number: admission_number || `ADM-${Date.now().toString().slice(-4)}`,
@@ -425,8 +434,10 @@ class StudentController extends BaseController {
       const {
         first_name, last_name, admission_number, roll_number, grade, section, gender, dob,
         guardian_name, guardian_phone, alternate_phone, nfc_card_uid,
-        is_bus_service_enabled, bus_route_id, bus_stop_id, status
+        is_bus_service_enabled, bus_route_id, bus_stop_id, status, class_id
       } = req.body;
+
+      if (class_id !== undefined) student.class_id = class_id ? parseInt(class_id, 10) : null;
 
       if (nfc_card_uid && nfc_card_uid !== student.nfc_card_uid) {
         const existingUid = await Student.findOne({ where: { nfc_card_uid } });
@@ -622,6 +633,59 @@ class StudentController extends BaseController {
       await transaction.rollback();
       console.error('Error promoting students:', error);
       return this.sendError(res, 'Failed to promote students: ' + error.message, 500);
+    }
+  }
+
+  /**
+   * Get student academic session records for promotion modal
+   */
+  async getStudentSessions(req, res) {
+    try {
+      const { academic_year_id, school_id } = req.query;
+      const targetSchoolId = school_id || req.headers['x-school-id'] || 1;
+
+      const whereClause = { school_id: targetSchoolId };
+      if (academic_year_id) whereClause.academic_year_id = academic_year_id;
+
+      const sessions = await StudentAcademicSession.findAll({
+        where: whereClause,
+        include: [{ model: Student, as: 'student' }],
+        order: [['createdAt', 'DESC']]
+      });
+
+      const list = sessions.map(s => ({
+        id: s.id,
+        student_id: s.student_id,
+        student_name: s.student ? `${s.student.first_name || ''} ${s.student.last_name || ''}`.trim() : 'Student',
+        admission_number: s.student?.admission_number || `ADM-${s.student_id}`,
+        session_grade: s.grade,
+        session_section: s.section,
+        session_status: s.status,
+        photo: s.student?.photo || null
+      }));
+
+      // Fallback: If no explicit session records exist, fetch active students directly
+      if (list.length === 0) {
+        const students = await Student.findAll({
+          where: { school_id: targetSchoolId, status: 'active' }
+        });
+        const fallbackList = students.map(s => ({
+          id: s.id,
+          student_id: s.id,
+          student_name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+          admission_number: s.admission_number || `ADM-${s.id}`,
+          session_grade: s.grade || 'Grade 10',
+          session_section: s.section || 'A',
+          session_status: 'ENROLLED',
+          photo: s.photo || null
+        }));
+        return this.sendResponse(res, fallbackList, 'Active students list retrieved for promotion');
+      }
+
+      return this.sendResponse(res, list, 'Session students retrieved successfully');
+    } catch (error) {
+      console.error('Error fetching student sessions:', error);
+      return this.sendError(res, 'Failed to fetch student sessions: ' + error.message, 500);
     }
   }
 }

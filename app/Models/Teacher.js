@@ -60,6 +60,20 @@ const Teacher = sequelize.define('Teacher', {
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'suspended'),
     defaultValue: 'active'
+  },
+  image_url: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const photo = this.getDataValue('photo');
+      if (photo && typeof photo === 'string' && photo.trim() !== '' && !photo.includes('ui-avatars.com')) {
+        if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:image')) {
+          return photo;
+        }
+        const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+        return `${baseUrl}${photo.startsWith('/') ? photo : `/${photo}`}`;
+      }
+      return null;
+    }
   }
 }, {
   tableName: 'teachers',

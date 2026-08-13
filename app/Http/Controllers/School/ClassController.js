@@ -191,14 +191,11 @@ class ClassController extends BaseController {
         }
       }
 
-      // Fetch unassigned students or students from other classes for assignment dropdown
+      // Fetch strictly unassigned students (class_id: null) for desk assignment modal
       const unassignedStudents = await Student.findAll({
         where: {
           school_id: schoolClass.school_id,
-          [Op.or]: [
-            { class_id: null },
-            { class_id: { [Op.ne]: schoolClass.id } }
-          ],
+          class_id: null,
           status: 'active'
         },
         attributes: ['id', 'first_name', 'last_name', 'admission_number', 'grade', 'section', 'gender', 'nfc_card_uid'],

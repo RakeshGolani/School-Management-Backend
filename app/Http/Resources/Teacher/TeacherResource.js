@@ -6,9 +6,16 @@ const BaseResource = require('../BaseResource');
  */
 class TeacherResource extends BaseResource {
   toArray() {
-    let photoUrl = this.resource.photo || null;
-    if (photoUrl && photoUrl.startsWith('/uploads/')) {
-      photoUrl = `http://localhost:5000${photoUrl}`;
+    const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+    let photoUrl = null;
+    if (this.resource.photo && typeof this.resource.photo === 'string' && this.resource.photo.trim() !== '' && !this.resource.photo.includes('ui-avatars.com')) {
+      if (this.resource.photo.startsWith('http://') || this.resource.photo.startsWith('https://') || this.resource.photo.startsWith('data:image')) {
+        photoUrl = this.resource.photo;
+      } else {
+        photoUrl = `${baseUrl}${this.resource.photo.startsWith('/') ? this.resource.photo : `/${this.resource.photo}`}`;
+      }
+    } else if (this.resource.image_url && !this.resource.image_url.includes('ui-avatars.com')) {
+      photoUrl = this.resource.image_url;
     }
 
     const detailedAssignments = this.resource.assignedClasses 
@@ -44,7 +51,9 @@ class TeacherResource extends BaseResource {
       classAssigned: classAssignedStr,
       assignedClasses: assignedClassesList,
       assignmentHistory: detailedAssignments,
+      academicSessionHistory: detailedAssignments,
       photo: photoUrl,
+      image_url: photoUrl,
       nfcCardUid: this.resource.nfc_card_uid || null,
       status: this.resource.status || 'active',
       createdAt: this.resource.createdAt

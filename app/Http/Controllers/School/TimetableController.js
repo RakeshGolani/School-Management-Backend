@@ -205,7 +205,7 @@ class TimetableController {
       const allocations = await Timetable.findAll({
         where: whereClause,
         include: [
-          { model: SchoolClass, as: 'schoolClass', attributes: ['id', 'name', 'section'] },
+          { model: SchoolClass, as: 'schoolClass', attributes: ['id', 'class_name', 'section'] },
           { model: PeriodSlot, as: 'periodSlot' }
         ]
       });
