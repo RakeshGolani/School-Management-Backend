@@ -51,6 +51,7 @@ router.delete('/classes/:id', (req, res) => ClassController.destroy(req, res));
 // Dynamic Attendance Management Routes
 router.get('/attendance', (req, res) => AttendanceController.index(req, res));
 router.post('/attendance/bulk', (req, res) => AttendanceController.saveBulk(req, res));
+router.post('/attendance/gate-scan', (req, res) => AttendanceController.gateScan(req, res));
 router.get('/attendance/summary', (req, res) => AttendanceController.getSummary(req, res));
 
 // Student Fee Management Routes

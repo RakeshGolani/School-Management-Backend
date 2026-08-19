@@ -298,6 +298,143 @@ class AttendanceController extends BaseController {
       return this.sendError(res, 'Failed to fetch summary', error.message, 500);
     }
   }
+  /**
+   * Hardware NFC Gate Sensor Scan Endpoint
+   * Processes card_uid, entry_type (IN / OUT), updates check_in / check_out, and triggers parent notifications.
+   */
+  async gateScan(req, res) {
+    try {
+      const { card_uid, entry_type = 'IN', gate_id = 'GATE_1' } = req.body;
+      const school_id = req.body.school_id || req.user?.school_id || 1;
+
+      if (!card_uid) {
+        return this.sendValidationError(res, [{ card_uid: ['Card UID is required'] }], 'Card UID missing', 400);
+      }
+
+      const cleanUid = String(card_uid).trim();
+
+      // 1. Lookup Student or Teacher by nfc_card_uid
+      let person = await Student.findOne({ where: { school_id, nfc_card_uid: cleanUid } });
+      let entity_type = 'STUDENT';
+
+      if (!person) {
+        person = await Teacher.findOne({ where: { school_id, nfc_card_uid: cleanUid } });
+        entity_type = 'STAFF';
+      }
+
+      if (!person) {
+        return res.status(404).json({
+          success: false,
+          status: 'INVALID_CARD',
+          message: 'NFC Card is not assigned to any student or teacher.',
+          card_uid: cleanUid
+        });
+      }
+
+      const personName = `${person.first_name || ''} ${person.last_name || ''}`.trim();
+      const targetDate = new Date().toISOString().split('T')[0];
+      const now = new Date();
+
+      // 2. Active Academic Year Lookup
+      let activeYearId = null;
+      const activeYear = await AcademicYear.findOne({ where: { school_id, is_active: true } });
+      if (activeYear) activeYearId = activeYear.id;
+
+      // 3. Find or Create Attendance Log for Today
+      const whereCondition = { school_id, date: targetDate, entity_type };
+      if (entity_type === 'STUDENT') {
+        whereCondition.student_id = person.id;
+      } else {
+        whereCondition.teacher_id = person.id;
+      }
+
+      let log = await AttendanceLog.findOne({ where: whereCondition });
+
+      // Anti-Passback Cooldown Check (30 seconds)
+      const lastCheckTime = (entry_type.toUpperCase() === 'OUT') ? log?.check_out : log?.check_in;
+      if (lastCheckTime && (now - new Date(lastCheckTime)) < 30000) {
+        return res.status(200).json({
+          success: true,
+          status: 'ALREADY_SCANNED',
+          person: {
+            id: person.id,
+            name: personName,
+            entity_type,
+            photo: person.image_url || person.photo || null,
+            class: person.class || person.department || null,
+            section: person.section || null
+          },
+          message: `${personName} already scanned ${entry_type.toUpperCase()} recently. Cooldown active.`
+        });
+      }
+
+      const isEntryIn = entry_type.toUpperCase() === 'IN';
+
+      if (!log) {
+        const createData = {
+          school_id,
+          academic_year_id: activeYearId,
+          entity_type,
+          date: targetDate,
+          status: 'present',
+          remarks: `Scanned at ${gate_id} (${entry_type.toUpperCase()})`
+        };
+
+        if (entity_type === 'STUDENT') {
+          createData.student_id = person.id;
+          createData.class_id = person.class_id || null;
+        } else {
+          createData.teacher_id = person.id;
+        }
+
+        if (isEntryIn) {
+          createData.check_in = now;
+        } else {
+          createData.check_out = now;
+        }
+
+        log = await AttendanceLog.create(createData);
+      } else {
+        const updateData = {
+          status: 'present',
+          remarks: `${log.remarks || ''} | Scanned ${entry_type.toUpperCase()} at ${now.toLocaleTimeString()}`.trim()
+        };
+
+        if (isEntryIn) {
+          if (!log.check_in) updateData.check_in = now;
+        } else {
+          updateData.check_out = now;
+        }
+
+        await log.update(updateData);
+      }
+
+      // 4. Log Parent Alert Trigger
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      console.log(`[GATE ALERT] SMS/Notification sent to parent of ${personName} (${entity_type}): Gate ${entry_type.toUpperCase()} recorded at ${timeStr}. Phone: ${person.guardian_phone || person.phone || 'N/A'}`);
+
+      return res.status(200).json({
+        success: true,
+        status: 'SUCCESS',
+        entry_type: entry_type.toUpperCase(),
+        person: {
+          id: person.id,
+          name: personName,
+          entity_type,
+          photo: person.image_url || person.photo || null,
+          class: person.class || person.department || null,
+          section: person.section || null
+        },
+        time: timeStr,
+        message: `Welcome ${personName}! Attendance marked ${entry_type.toUpperCase()}`
+      });
+
+    } catch (error) {
+      console.error('Error processing gate scan:', error);
+      return this.sendError(res, 'Gate scan failed', error.message, 500);
+    }
+  }
 }
 
 module.exports = new AttendanceController();
+

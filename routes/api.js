@@ -18,6 +18,11 @@ router.use('/student', SubscriptionCheckMiddleware, studentRoutes);
 router.use('/students', SubscriptionCheckMiddleware, studentRoutes);
 router.use('/common', SubscriptionCheckMiddleware, commonRoutes);
 
+const AttendanceController = require('../app/Http/Controllers/School/AttendanceController');
+
+// Direct IoT Gate Sensor Scan Endpoint (Hardware device connection)
+router.post('/attendance/gate-scan', (req, res) => AttendanceController.gateScan(req, res));
+
 // General health check
 router.get('/health', (req, res) => {
   return ApiResponse.sendResponse(res, { status: 'healthy' }, 'School Management System API is running');
