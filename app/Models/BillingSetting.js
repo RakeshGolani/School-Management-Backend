@@ -46,6 +46,11 @@ const BillingSetting = sequelize.define('BillingSetting', {
     type: DataTypes.DECIMAL(5, 2),
     allowNull: false,
     defaultValue: 18.00
+  },
+  grace_period_days: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 7
   }
 }, {
   tableName: 'billing_settings',

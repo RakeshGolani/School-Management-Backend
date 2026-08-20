@@ -37,6 +37,16 @@ const SubscriptionTransaction = sequelize.define('SubscriptionTransaction', {
   payment_method: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  payment_mode: {
+    type: DataTypes.ENUM('online', 'offline'),
+    allowNull: false,
+    defaultValue: 'online'
+  },
+  reference_number: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Cheque No, UTR, or Offline Receipt No'
   }
 }, {
   tableName: 'subscription_transactions',

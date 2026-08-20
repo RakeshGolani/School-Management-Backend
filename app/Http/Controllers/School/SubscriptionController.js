@@ -5,8 +5,17 @@ const {
   SchoolInvoice, 
   BillingSetting,
   Student,
-  Bus
+  Bus,
+  School
 } = require('../../../Models');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder'
+});
 
 /**
  * SubscriptionController
@@ -125,17 +134,36 @@ class SubscriptionController extends BaseController {
         return this.sendError(res, 'Subscription record not found. Please reload.', 404);
       }
 
+      const school = await School.findByPk(schoolId);
+      if (!school) {
+        return this.sendError(res, 'School record not found.', 404);
+      }
+
+      // Downgrade Block Check
+      const activeStudentsCount = await Student.count({ where: { school_id: schoolId, status: 'active' } });
+      let activeBusesCount = 0;
+      if (Bus.rawAttributes.school_id) {
+        activeBusesCount = await Bus.count({ where: { school_id: schoolId } });
+      }
+
+      if (max_students_limit < activeStudentsCount) {
+        return this.sendError(res, `Cannot downgrade student limit. You currently have ${activeStudentsCount} active students. Please deactivate students first.`, 400);
+      }
+      if (max_buses_limit < activeBusesCount) {
+        return this.sendError(res, `Cannot downgrade bus limit. You currently have ${activeBusesCount} buses. Please remove buses first.`, 400);
+      }
+
       // Fetch global pricing settings
       let config = await BillingSetting.findOne();
       if (!config) {
         config = await BillingSetting.create({});
       }
 
-      // Calculate checkout pricing based on plan type and limits
+      // Calculate checkout pricing based on plan type and limits, applying custom overrides if present
       const isYearly = plan_type === 'yearly';
-      const baseFee = isYearly ? config.base_fee_yearly : config.base_fee_monthly;
-      const studentFee = isYearly ? config.student_fee_yearly : config.student_fee_monthly;
-      const busFee = isYearly ? config.bus_fee_yearly : config.bus_fee_monthly;
+      const baseFee = isYearly ? (subscription.custom_base_fee_yearly || config.base_fee_yearly) : (subscription.custom_base_fee_monthly || config.base_fee_monthly);
+      const studentFee = isYearly ? (subscription.custom_student_fee_yearly || config.student_fee_yearly) : (subscription.custom_student_fee_monthly || config.student_fee_monthly);
+      const busFee = isYearly ? (subscription.custom_bus_fee_yearly || config.bus_fee_yearly) : (subscription.custom_bus_fee_monthly || config.bus_fee_monthly);
 
       const subtotal = Number(baseFee) + 
                        (Number(studentFee) * max_students_limit) + 
@@ -143,24 +171,33 @@ class SubscriptionController extends BaseController {
       
       let discountAmount = 0;
       if (isYearly) {
-        discountAmount = (subtotal * Number(config.yearly_discount_percent)) / 100;
+        const discountPercent = subscription.custom_discount_percent || config.yearly_discount_percent;
+        discountAmount = (subtotal * Number(discountPercent)) / 100;
       }
 
       const totalBeforeTax = subtotal - discountAmount;
       const taxAmount = (totalBeforeTax * Number(config.tax_rate_percent)) / 100;
       const finalAmount = totalBeforeTax + taxAmount;
 
-      // Create a pending gateway transaction log
-      const mockGatewayTxId = 'TXN-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      // Generate Razorpay Order
+      const options = {
+        amount: Math.round(finalAmount * 100), // Amount in paise
+        currency: 'INR',
+        receipt: 'rcpt_' + Math.random().toString(36).substr(2, 9)
+      };
 
+      const razorpayOrder = await razorpay.orders.create(options);
+
+      // Create a pending gateway transaction log
       const txn = await SubscriptionTransaction.create({
         school_id: schoolId,
         subscription_id: subscription.id,
-        gateway_transaction_id: mockGatewayTxId,
+        gateway_transaction_id: razorpayOrder.id,
         amount: finalAmount.toFixed(2),
         currency: 'INR',
         status: 'pending',
-        payment_method: 'UPI/Card'
+        payment_method: 'Razorpay',
+        payment_mode: 'online'
       });
 
       return this.sendResponse(res, {
@@ -172,7 +209,11 @@ class SubscriptionController extends BaseController {
           total: finalAmount.toFixed(2),
           plan_type,
           max_students_limit,
-          max_buses_limit
+          max_buses_limit,
+          razorpay_key: process.env.RAZORPAY_KEY_ID,
+          school_name: school.school_name,
+          school_email: school.email,
+          school_phone: school.phone || ''
         }
       }, 'Checkout session generated successfully');
 
@@ -184,14 +225,45 @@ class SubscriptionController extends BaseController {
 
   /**
    * Webhook handler to simulate payment gateway webhook callback.
-   * This is also directly callable to mock successful payments in dev mode.
+   * Handles Razorpay success verification via signature.
    */
   async webhook(req, res) {
     try {
-      const { gateway_transaction_id, status } = req.body;
+      const { 
+        razorpay_payment_id, 
+        razorpay_order_id, 
+        razorpay_signature,
+        // Mock fallback for dev mode
+        gateway_transaction_id, 
+        status,
+        max_students_limit,
+        max_buses_limit,
+        plan_type
+      } = req.body;
+
+      let isSuccess = false;
+      let txnId = gateway_transaction_id || razorpay_order_id;
+
+      if (razorpay_order_id && razorpay_signature) {
+        // Verify Razorpay Signature
+        const secret = process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder';
+        const generated_signature = crypto
+          .createHmac('sha256', secret)
+          .update(razorpay_order_id + '|' + razorpay_payment_id)
+          .digest('hex');
+
+        if (generated_signature === razorpay_signature) {
+          isSuccess = true;
+        } else {
+          return this.sendError(res, 'Invalid payment signature', 400);
+        }
+      } else if (status === 'success') {
+        // Fallback for mock dev mode
+        isSuccess = true;
+      }
 
       const txn = await SubscriptionTransaction.findOne({
-        where: { gateway_transaction_id }
+        where: { gateway_transaction_id: txnId }
       });
 
       if (!txn) {
@@ -202,17 +274,16 @@ class SubscriptionController extends BaseController {
         return this.sendResponse(res, txn, 'Transaction already processed');
       }
 
-      if (status === 'success') {
+      if (isSuccess) {
         // 1. Update transaction log
         txn.status = 'success';
+        if (razorpay_payment_id) {
+          txn.reference_number = razorpay_payment_id;
+        }
         await txn.save();
 
         // 2. Fetch parent subscription
         const sub = await SchoolSubscription.findByPk(txn.subscription_id);
-        
-        // Retrieve dynamic upgrade properties from req.body if mock webhook,
-        // or resolve from temporary records. For demo/dev simplicity, we take limits from body.
-        const { max_students_limit, max_buses_limit, plan_type } = req.body;
 
         if (sub) {
           sub.status = 'active';
@@ -220,7 +291,7 @@ class SubscriptionController extends BaseController {
           if (max_buses_limit) sub.max_buses_limit = max_buses_limit;
           if (plan_type) sub.plan_type = plan_type;
 
-          // Extend expiry date
+          // Option B: Reset Cycle. Set start date to today, end date to 30/365 days from today.
           const starts = new Date();
           const ends = new Date();
           if (sub.plan_type === 'yearly') {

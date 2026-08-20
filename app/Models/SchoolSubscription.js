@@ -46,6 +46,34 @@ const SchoolSubscription = sequelize.define('SchoolSubscription', {
   gateway_subscription_id: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  custom_base_fee_monthly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_base_fee_yearly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_student_fee_monthly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_student_fee_yearly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_bus_fee_monthly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_bus_fee_yearly: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  custom_discount_percent: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true
   }
 }, {
   tableName: 'school_subscriptions',

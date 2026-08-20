@@ -132,6 +132,80 @@ class AdminTransactionController {
       });
     }
   }
+
+  // Record an offline manual payment
+  async recordOfflinePayment(req, res) {
+    try {
+      const { school_id, amount, payment_method, reference_number, max_students_limit, max_buses_limit, plan_type } = req.body;
+
+      if (!school_id || !amount || !payment_method) {
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
+      }
+
+      const subscription = await SchoolSubscription.findOne({ where: { school_id } });
+      if (!subscription) {
+        return res.status(404).json({ success: false, message: 'School subscription not found' });
+      }
+
+      // Create transaction record
+      const mockGatewayTxId = 'OFF-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+      const txn = await SubscriptionTransaction.create({
+        school_id,
+        subscription_id: subscription.id,
+        gateway_transaction_id: mockGatewayTxId,
+        amount,
+        currency: 'INR',
+        status: 'success',
+        payment_method,
+        payment_mode: 'offline',
+        reference_number
+      });
+
+      // Update subscription
+      subscription.status = 'active';
+      if (max_students_limit) subscription.max_students_limit = max_students_limit;
+      if (max_buses_limit) subscription.max_buses_limit = max_buses_limit;
+      if (plan_type) subscription.plan_type = plan_type;
+
+      const starts = new Date();
+      const ends = new Date();
+      if (subscription.plan_type === 'yearly') {
+        ends.setDate(starts.getDate() + 365);
+      } else {
+        ends.setDate(starts.getDate() + 30);
+      }
+      subscription.starts_at = starts;
+      subscription.ends_at = ends;
+      await subscription.save();
+
+      // Create Invoice
+      const invoiceNum = 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+      const invoice = await SchoolInvoice.create({
+        school_id,
+        transaction_id: txn.id,
+        invoice_number: invoiceNum,
+        billing_date: new Date(),
+        amount_due: amount,
+        amount_paid: amount,
+        tax_amount: (amount * 0.18).toFixed(2),
+        status: 'paid',
+        invoice_pdf_url: `/uploads/invoices/${invoiceNum}.pdf`
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Offline payment recorded successfully',
+        data: { transaction: txn, invoice }
+      });
+    } catch (error) {
+      console.error('Error recording offline payment:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to record offline payment',
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = new AdminTransactionController();

@@ -6,6 +6,7 @@ const apiRoutes = require('./routes/api');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
+const billingCronService = require('./app/Services/BillingCronService');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Register role-based routes grouping under /api
 app.use('/api', apiRoutes);
+
+// Initialize Cron Jobs
+billingCronService.start();
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
