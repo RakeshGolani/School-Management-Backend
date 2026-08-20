@@ -63,5 +63,15 @@ router.put('/billing-settings', BillingSettingController.updateSettings);
 const AdminTransactionController = require('../app/Http/Controllers/Admin/AdminTransactionController');
 router.get('/transactions', AdminTransactionController.index);
 router.get('/transactions/:id', AdminTransactionController.show);
+router.post('/transactions/offline', AdminTransactionController.recordOfflinePayment);
+
+// --- Socket.IO Logs & Real-Time Monitoring ---
+const AdminSocketController = require('../app/Http/Controllers/Admin/AdminSocketController');
+router.get('/sockets/metrics', AdminSocketController.getMetrics);
+router.get('/sockets/logs', AdminSocketController.getLogs);
+router.get('/sockets/clients', AdminSocketController.getClients);
+router.post('/sockets/disconnect/:socketId', AdminSocketController.disconnectClient);
+router.post('/sockets/broadcast', AdminSocketController.broadcast);
+router.delete('/sockets/logs', AdminSocketController.clearLogs);
 
 module.exports = router;

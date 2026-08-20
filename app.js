@@ -8,16 +8,26 @@ const http = require('http');
 const { Server } = require('socket.io');
 const billingCronService = require('./app/Services/BillingCronService');
 
+const socketService = require('./app/Services/SocketService');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "*",
-        methods: ["GET", "POST"]
-    }
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
-// Attach io to req so controllers can use it
+// Initialize Socket.IO logging and tracking service
+socketService.init(io);
+
+// Attach io to req so controllers can broadcast events
 app.use((req, res, next) => {
     req.io = io;
     next();

@@ -142,9 +142,35 @@ class AdminTransactionController {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
       }
 
-      const subscription = await SchoolSubscription.findOne({ where: { school_id } });
+      let subscription = await SchoolSubscription.findOne({ where: { school_id } });
+
+      const starts = new Date();
+      const ends = new Date();
+      const selectedPlan = plan_type || 'monthly';
+      if (selectedPlan === 'yearly') {
+        ends.setDate(starts.getDate() + 365);
+      } else {
+        ends.setDate(starts.getDate() + 30);
+      }
+
       if (!subscription) {
-        return res.status(404).json({ success: false, message: 'School subscription not found' });
+        subscription = await SchoolSubscription.create({
+          school_id,
+          plan_type: selectedPlan,
+          status: 'active',
+          max_students_limit: parseInt(max_students_limit) || 50,
+          max_buses_limit: parseInt(max_buses_limit) || 5,
+          starts_at: starts,
+          ends_at: ends
+        });
+      } else {
+        subscription.status = 'active';
+        if (max_students_limit) subscription.max_students_limit = parseInt(max_students_limit);
+        if (max_buses_limit) subscription.max_buses_limit = parseInt(max_buses_limit);
+        if (plan_type) subscription.plan_type = plan_type;
+        subscription.starts_at = starts;
+        subscription.ends_at = ends;
+        await subscription.save();
       }
 
       // Create transaction record
@@ -153,30 +179,13 @@ class AdminTransactionController {
         school_id,
         subscription_id: subscription.id,
         gateway_transaction_id: mockGatewayTxId,
-        amount,
+        amount: parseFloat(amount),
         currency: 'INR',
         status: 'success',
         payment_method,
         payment_mode: 'offline',
-        reference_number
+        reference_number: reference_number || null
       });
-
-      // Update subscription
-      subscription.status = 'active';
-      if (max_students_limit) subscription.max_students_limit = max_students_limit;
-      if (max_buses_limit) subscription.max_buses_limit = max_buses_limit;
-      if (plan_type) subscription.plan_type = plan_type;
-
-      const starts = new Date();
-      const ends = new Date();
-      if (subscription.plan_type === 'yearly') {
-        ends.setDate(starts.getDate() + 365);
-      } else {
-        ends.setDate(starts.getDate() + 30);
-      }
-      subscription.starts_at = starts;
-      subscription.ends_at = ends;
-      await subscription.save();
 
       // Create Invoice
       const invoiceNum = 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);

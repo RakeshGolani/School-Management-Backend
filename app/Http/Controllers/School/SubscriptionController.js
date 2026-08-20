@@ -76,6 +76,17 @@ class SubscriptionController extends BaseController {
       // 3. Fetch past transactions & invoices
       const transactions = await SubscriptionTransaction.findAll({
         where: { school_id: schoolId },
+        include: [
+          {
+            model: SchoolInvoice,
+            as: 'invoice'
+          },
+          {
+            model: SchoolSubscription,
+            as: 'subscription',
+            attributes: ['id', 'plan_type']
+          }
+        ],
         order: [['createdAt', 'DESC']]
       });
 
@@ -146,11 +157,8 @@ class SubscriptionController extends BaseController {
         activeBusesCount = await Bus.count({ where: { school_id: schoolId } });
       }
 
-      if (max_students_limit < activeStudentsCount) {
-        return this.sendError(res, `Cannot downgrade student limit. You currently have ${activeStudentsCount} active students. Please deactivate students first.`, 400);
-      }
-      if (max_buses_limit < activeBusesCount) {
-        return this.sendError(res, `Cannot downgrade bus limit. You currently have ${activeBusesCount} buses. Please remove buses first.`, 400);
+      if (max_buses_limit !== undefined && max_buses_limit < 0) {
+        return this.sendError(res, `Invalid bus limit specified.`, 400);
       }
 
       // Fetch global pricing settings
@@ -179,24 +187,40 @@ class SubscriptionController extends BaseController {
       const taxAmount = (totalBeforeTax * Number(config.tax_rate_percent)) / 100;
       const finalAmount = totalBeforeTax + taxAmount;
 
-      // Generate Razorpay Order
-      const options = {
-        amount: Math.round(finalAmount * 100), // Amount in paise
-        currency: 'INR',
-        receipt: 'rcpt_' + Math.random().toString(36).substr(2, 9)
-      };
+      // Generate Razorpay Order or fallback to mock simulation order
+      let orderId = 'order_' + Math.random().toString(36).substr(2, 12);
+      let isMockOrder = true;
 
-      const razorpayOrder = await razorpay.orders.create(options);
+      try {
+        if (process.env.RAZORPAY_KEY_ID && 
+            process.env.RAZORPAY_KEY_SECRET && 
+            !process.env.RAZORPAY_KEY_ID.includes('placeholder')) {
+          const options = {
+            amount: Math.round(finalAmount * 100), // Amount in paise
+            currency: 'INR',
+            receipt: 'rcpt_' + Math.random().toString(36).substr(2, 9)
+          };
+          const razorpayOrder = await razorpay.orders.create(options);
+          if (razorpayOrder && razorpayOrder.id) {
+            orderId = razorpayOrder.id;
+            isMockOrder = false;
+          }
+        }
+      } catch (rzpErr) {
+        console.warn('Razorpay live order creation failed (using mock order ID for development):', rzpErr?.error?.description || rzpErr?.message || rzpErr);
+        orderId = 'order_mock_' + Math.random().toString(36).substr(2, 10);
+        isMockOrder = true;
+      }
 
       // Create a pending gateway transaction log
       const txn = await SubscriptionTransaction.create({
         school_id: schoolId,
         subscription_id: subscription.id,
-        gateway_transaction_id: razorpayOrder.id,
+        gateway_transaction_id: orderId,
         amount: finalAmount.toFixed(2),
         currency: 'INR',
         status: 'pending',
-        payment_method: 'Razorpay',
+        payment_method: isMockOrder ? 'Simulation / Dev Gateway' : 'Razorpay',
         payment_mode: 'online'
       });
 
@@ -210,7 +234,9 @@ class SubscriptionController extends BaseController {
           plan_type,
           max_students_limit,
           max_buses_limit,
-          razorpay_key: process.env.RAZORPAY_KEY_ID,
+          razorpay_key: process.env.RAZORPAY_KEY_ID || '',
+          order_id: orderId,
+          is_mock: isMockOrder,
           school_name: school.school_name,
           school_email: school.email,
           school_phone: school.phone || ''

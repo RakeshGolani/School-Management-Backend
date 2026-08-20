@@ -48,6 +48,11 @@ module.exports = {
         allowNull: false,
         defaultValue: 18.00,
       },
+      grace_period_days: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 7,
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,

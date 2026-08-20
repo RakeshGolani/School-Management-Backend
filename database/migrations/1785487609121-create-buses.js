@@ -31,6 +31,18 @@ module.exports = {
         allowNull: true,
         unique: true,
       },
+      current_lat: {
+        type: Sequelize.FLOAT,
+        allowNull: true,
+      },
+      current_lng: {
+        type: Sequelize.FLOAT,
+        allowNull: true,
+      },
+      last_location_update: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,

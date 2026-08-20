@@ -35,6 +35,16 @@ module.exports = {
         type: Sequelize.TEXT,
         allowNull: true,
       },
+      latitude: {
+        type: Sequelize.FLOAT,
+        allowNull: true,
+        defaultValue: 19.1136,
+      },
+      longitude: {
+        type: Sequelize.FLOAT,
+        allowNull: true,
+        defaultValue: 72.8697,
+      },
       logo: {
         type: Sequelize.TEXT,
         allowNull: true,

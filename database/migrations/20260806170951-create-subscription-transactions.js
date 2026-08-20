@@ -51,6 +51,16 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: true
       },
+      payment_mode: {
+        type: Sequelize.ENUM('online', 'offline'),
+        allowNull: false,
+        defaultValue: 'online'
+      },
+      reference_number: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        comment: 'Cheque No, UTR, or Offline Receipt No'
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,
