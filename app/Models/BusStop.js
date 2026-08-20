@@ -26,6 +26,14 @@ const BusStop = sequelize.define('BusStop', {
   drop_off_time: {
     type: DataTypes.TIME,
     allowNull: true
+  },
+  latitude: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.FLOAT,
+    allowNull: true
   }
 }, {
   tableName: 'bus_stops',

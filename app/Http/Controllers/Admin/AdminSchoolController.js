@@ -212,8 +212,7 @@ class AdminSchoolController {
     }
 
     try {
-      const { id } = req.params;
-      const { school_name, code, email, password, phone, address, primary_color, background_color, logo } = req.body;
+      const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo } = req.body;
 
       const school = await School.findByPk(id);
       if (!school) {
@@ -242,6 +241,8 @@ class AdminSchoolController {
         email,
         phone,
         address,
+        latitude: latitude ? parseFloat(latitude) : school.latitude,
+        longitude: longitude ? parseFloat(longitude) : school.longitude,
         primary_color: primary_color || '#14b8a6'
       };
 

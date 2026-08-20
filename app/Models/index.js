@@ -67,6 +67,8 @@ Bus.belongsTo(BusRoute, { foreignKey: 'route_id', as: 'route' });
 // 6. Student - Transport
 Student.belongsTo(BusRoute, { foreignKey: 'bus_route_id', as: 'busRoute' });
 Student.belongsTo(BusStop, { foreignKey: 'bus_stop_id', as: 'busStop' });
+BusRoute.hasMany(Student, { foreignKey: 'bus_route_id', as: 'students' });
+BusStop.hasMany(Student, { foreignKey: 'bus_stop_id', as: 'students' });
 
 // 7. AttendanceLog Relationships
 Student.hasMany(AttendanceLog, { foreignKey: 'student_id', as: 'attendanceLogs' });

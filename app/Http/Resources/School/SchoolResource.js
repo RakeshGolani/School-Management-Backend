@@ -19,6 +19,8 @@ class SchoolResource extends BaseResource {
       email: this.resource.email,
       phone: this.resource.phone || '',
       address: this.resource.address || '',
+      latitude: this.resource.latitude !== undefined && this.resource.latitude !== null ? parseFloat(this.resource.latitude) : 19.1136,
+      longitude: this.resource.longitude !== undefined && this.resource.longitude !== null ? parseFloat(this.resource.longitude) : 72.8697,
       logo: logoUrl,
       status: this.resource.status || 'active',
       primaryColor: this.resource.primary_color || '#14b8a6',

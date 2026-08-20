@@ -34,7 +34,9 @@ async function seedDatabase() {
       email: 'school@gmail.com',
       password: defaultPassword,
       phone: '+91 9876543200',
-      address: '102 Sector 5, Educational Hub, City'
+      address: 'Greenwood Campus, Main Highway Road, Andheri West, Mumbai',
+      latitude: 19.1136,
+      longitude: 72.8697
     });
 
     // 1.1 Create Default Academic Year
@@ -289,29 +291,87 @@ async function seedDatabase() {
       end_point: 'Greenwood Campus'
     });
 
-    // 6. Create Bus Stops
+    // 6. Create Bus Stops with GPS Coordinates
     console.log('Seeding Bus Stops...');
     const stop1 = await BusStop.create({
       route_id: route1.id,
       stop_name: 'Borivali Station East',
       sequence: 1,
       pickup_time: '07:00:00',
-      drop_off_time: '14:30:00'
+      drop_off_time: '14:30:00',
+      latitude: 19.2290,
+      longitude: 72.8570
     });
+
     const stop2 = await BusStop.create({
       route_id: route1.id,
       stop_name: 'Kandivali Highway Junction',
       sequence: 2,
       pickup_time: '07:15:00',
-      drop_off_time: '14:15:00'
+      drop_off_time: '14:15:00',
+      latitude: 19.2060,
+      longitude: 72.8650
+    });
+
+    const stop3 = await BusStop.create({
+      route_id: route1.id,
+      stop_name: 'Malad Highway Junction',
+      sequence: 3,
+      pickup_time: '07:30:00',
+      drop_off_time: '14:00:00',
+      latitude: 19.1860,
+      longitude: 72.8600
+    });
+
+    const stop4 = await BusStop.create({
+      route_id: route1.id,
+      stop_name: 'Goregaon Hub',
+      sequence: 4,
+      pickup_time: '07:45:00',
+      drop_off_time: '13:45:00',
+      latitude: 19.1550,
+      longitude: 72.8620
+    });
+
+    // Route 2 Stops
+    const stop5 = await BusStop.create({
+      route_id: route2.id,
+      stop_name: 'Dadar Circle',
+      sequence: 1,
+      pickup_time: '07:00:00',
+      drop_off_time: '14:30:00',
+      latitude: 19.0178,
+      longitude: 72.8478
     });
 
     const stop6 = await BusStop.create({
       route_id: route2.id,
-      stop_name: 'Worli Naka',
+      stop_name: 'Sion Circle',
+      sequence: 2,
+      pickup_time: '07:15:00',
+      drop_off_time: '14:15:00',
+      latitude: 19.0390,
+      longitude: 72.8610
+    });
+
+    const stop7 = await BusStop.create({
+      route_id: route2.id,
+      stop_name: 'Kurla West Station',
       sequence: 3,
-      pickup_time: '07:35:00',
-      drop_off_time: '14:10:00'
+      pickup_time: '07:30:00',
+      drop_off_time: '14:00:00',
+      latitude: 19.0680,
+      longitude: 72.8750
+    });
+
+    const stop8 = await BusStop.create({
+      route_id: route2.id,
+      stop_name: 'Ghatkopar Link Road',
+      sequence: 4,
+      pickup_time: '07:45:00',
+      drop_off_time: '13:45:00',
+      latitude: 19.0860,
+      longitude: 72.8890
     });
 
     // 7. Create Buses
@@ -321,7 +381,21 @@ async function seedDatabase() {
       driver_name: 'Ramesh Singh',
       driver_phone: '9876543220',
       route_id: route1.id,
-      device_id: 'BUS_101_SCAN'
+      device_id: 'BUS_101_SCAN',
+      current_lat: 19.2288,
+      current_lng: 72.8541,
+      last_location_update: new Date()
+    });
+
+    const bus2 = await Bus.create({
+      bus_number: 'MH-01-AX-2222',
+      driver_name: 'Mahesh Patil',
+      driver_phone: '9876543221',
+      route_id: route2.id,
+      device_id: 'BUS_202_SCAN',
+      current_lat: 19.0178,
+      current_lng: 72.8478,
+      last_location_update: new Date()
     });
 
     // 8. Create Enrolled Students
@@ -335,6 +409,7 @@ async function seedDatabase() {
       grade: 'Grade 10-A',
       section: 'A',
       gender: 'male',
+      dob: '2011-04-15',
       guardian_name: 'Ramesh Gupta',
       guardian_phone: '9876543210',
       parent_id: parent1.id,
@@ -355,6 +430,7 @@ async function seedDatabase() {
       grade: 'Grade 10-A',
       section: 'A',
       gender: 'male',
+      dob: '2011-08-20',
       guardian_name: 'Ramesh Gupta',
       guardian_phone: '9876543210',
       parent_id: parent1.id,
@@ -373,6 +449,7 @@ async function seedDatabase() {
       grade: 'Grade 9-B',
       section: 'B',
       gender: 'female',
+      dob: '2012-05-10',
       guardian_name: 'Suresh Patel',
       guardian_phone: '9876543211',
       parent_id: parent2.id,
@@ -393,11 +470,14 @@ async function seedDatabase() {
       grade: 'Grade 8-A',
       section: 'A',
       gender: 'male',
+      dob: '2013-11-12',
       guardian_name: 'Meeta Shah',
       guardian_phone: '9876543212',
       class_id: class8A.id,
       nfc_card_uid: 'STUDENT_CARD_004',
-      is_bus_service_enabled: false,
+      is_bus_service_enabled: true,
+      bus_route_id: route2.id,
+      bus_stop_id: stop6.id,
       status: 'active'
     });
 
@@ -410,6 +490,7 @@ async function seedDatabase() {
       grade: 'Grade 5-B',
       section: 'B',
       gender: 'female',
+      dob: '2016-02-28',
       guardian_name: 'Vikram Deshmukh',
       guardian_phone: '9876543213',
       class_id: class5B.id,

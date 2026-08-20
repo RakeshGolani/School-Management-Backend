@@ -1,37 +1,55 @@
 const express = require('express');
 const router = express.Router();
 const SchoolController = require('../app/Http/Controllers/School/SchoolController');
-const SchoolLoginRequest = require('../app/Http/Requests/School/SchoolLoginRequest');
-const SchoolRegisterRequest = require('../app/Http/Requests/School/SchoolRegisterRequest');
-
-const SchoolUpdateProfileRequest = require('../app/Http/Requests/School/SchoolUpdateProfileRequest');
-const SchoolChangePasswordRequest = require('../app/Http/Requests/School/SchoolChangePasswordRequest');
+const SchoolTeacherController = require('../app/Http/Controllers/School/SchoolTeacherController');
+const SchoolStudentController = require('../app/Http/Controllers/School/SchoolStudentController');
+const SchoolCommonController = require('../app/Http/Controllers/School/SchoolCommonController');
 const SubscriptionController = require('../app/Http/Controllers/School/SubscriptionController');
 const AcademicYearController = require('../app/Http/Controllers/School/AcademicYearController');
+const AttendanceController = require('../app/Http/Controllers/School/AttendanceController');
+const ClassController = require('../app/Http/Controllers/School/ClassController');
+const FeeController = require('../app/Http/Controllers/School/FeeController');
+const TimetableController = require('../app/Http/Controllers/School/TimetableController');
+const TransportController = require('../app/Http/Controllers/School/TransportController');
+
+const SchoolDashboardController = require('../app/Http/Controllers/School/SchoolDashboardController');
+
+const SchoolLoginRequest = require('../app/Http/Requests/School/SchoolLoginRequest');
+const SchoolRegisterRequest = require('../app/Http/Requests/School/SchoolRegisterRequest');
+const SchoolUpdateProfileRequest = require('../app/Http/Requests/School/SchoolUpdateProfileRequest');
+const SchoolChangePasswordRequest = require('../app/Http/Requests/School/SchoolChangePasswordRequest');
+const StoreTeacherRequest = require('../app/Http/Requests/Teacher/StoreTeacherRequest');
+const UpdateTeacherRequest = require('../app/Http/Requests/Teacher/UpdateTeacherRequest');
+const StoreStudentRequest = require('../app/Http/Requests/Student/StoreStudentRequest');
+const UpdateStudentRequest = require('../app/Http/Requests/Student/UpdateStudentRequest');
+
 const { makeUploader } = require('../utils/UploadUtils');
 
 const uploadLogo = makeUploader('schools', ['jpg', 'jpeg', 'png', 'webp']).single('logo');
+const uploadTeacherPhoto = makeUploader('teachers', ['jpg', 'jpeg', 'png', 'webp']).single('photo');
+const uploadStudentPhoto = makeUploader('students', ['jpg', 'jpeg', 'png', 'webp']).single('photo');
 
-// School Registration
+// ===================== HEALTH CHECK =====================
+router.get('/health', (req, res) => {
+  return res.status(200).json({ success: true, message: 'School API is healthy', data: { status: 'healthy' } });
+});
+
+// ===================== DASHBOARD METRICS =====================
+router.get('/dashboard', SchoolDashboardController.getDashboardStats);
+
+// ===================== SCHOOL AUTH & PROFILE =====================
 router.post('/register', SchoolRegisterRequest.rules(), SchoolController.register);
-
-// School Login
 router.post('/login', SchoolLoginRequest.rules(), SchoolController.login);
-
-// School Profile
 router.get('/profile', SchoolController.profile);
 router.post('/profile/update', uploadLogo, SchoolUpdateProfileRequest.rules(), SchoolController.updateProfile);
 router.post('/change-password', SchoolChangePasswordRequest.rules(), SchoolController.changePassword);
 
-// School Subscription & SaaS Billing Routes
+// ===================== SUBSCRIPTION & SAAS BILLING =====================
 router.get('/subscription', SubscriptionController.getDetails);
 router.post('/subscription/checkout', SubscriptionController.createCheckoutSession);
 router.post('/subscription/webhook', SubscriptionController.webhook);
 
-const AttendanceController = require('../app/Http/Controllers/School/AttendanceController');
-const ClassController = require('../app/Http/Controllers/School/ClassController');
-
-// Academic Year Management Routes
+// ===================== ACADEMIC YEARS =====================
 router.get('/academic-years', (req, res) => AcademicYearController.index(req, res));
 router.get('/academic-years/active', (req, res) => AcademicYearController.getActive(req, res));
 router.post('/academic-years', (req, res) => AcademicYearController.store(req, res));
@@ -39,7 +57,7 @@ router.put('/academic-years/:id', (req, res) => AcademicYearController.update(re
 router.patch('/academic-years/:id/active', (req, res) => AcademicYearController.setActive(req, res));
 router.delete('/academic-years/:id', (req, res) => AcademicYearController.destroy(req, res));
 
-// Class & Section Management Routes
+// ===================== CLASSES & SECTIONS =====================
 router.get('/classes', (req, res) => ClassController.index(req, res));
 router.get('/classes/:id', (req, res) => ClassController.show(req, res));
 router.post('/classes', (req, res) => ClassController.store(req, res));
@@ -48,14 +66,32 @@ router.post('/classes/:id/assign-student', (req, res) => ClassController.assignS
 router.delete('/classes/:id/students/:studentId', (req, res) => ClassController.unassignStudent(req, res));
 router.delete('/classes/:id', (req, res) => ClassController.destroy(req, res));
 
-// Dynamic Attendance Management Routes
+// ===================== TEACHER MANAGEMENT (SCHOOL PORTAL) =====================
+router.get('/teachers', SchoolTeacherController.index);
+router.get('/teachers/:id', SchoolTeacherController.show);
+router.post('/teachers', uploadTeacherPhoto, StoreTeacherRequest.rules(), SchoolTeacherController.store);
+router.put('/teachers/:id', uploadTeacherPhoto, UpdateTeacherRequest.rules(), SchoolTeacherController.update);
+router.delete('/teachers/:id', SchoolTeacherController.destroy);
+
+// ===================== STUDENT MANAGEMENT (SCHOOL PORTAL) =====================
+router.get('/students', SchoolStudentController.index);
+router.get('/students/:id', SchoolStudentController.show);
+router.post('/students', uploadStudentPhoto, StoreStudentRequest.rules(), SchoolStudentController.store);
+router.put('/students/:id', uploadStudentPhoto, UpdateStudentRequest.rules(), SchoolStudentController.update);
+router.put('/students/:id/status', SchoolStudentController.toggleStatus);
+router.delete('/students/:id', SchoolStudentController.destroy);
+
+// Student Academic Sessions & Promotion
+router.get('/student-sessions', (req, res) => SchoolStudentController.getStudentSessions(req, res));
+router.post('/student-sessions/promote', (req, res) => SchoolStudentController.promoteStudents(req, res));
+
+// ===================== ATTENDANCE =====================
 router.get('/attendance', (req, res) => AttendanceController.index(req, res));
 router.post('/attendance/bulk', (req, res) => AttendanceController.saveBulk(req, res));
 router.post('/attendance/gate-scan', (req, res) => AttendanceController.gateScan(req, res));
 router.get('/attendance/summary', (req, res) => AttendanceController.getSummary(req, res));
 
-// Student Fee Management Routes
-const FeeController = require('../app/Http/Controllers/School/FeeController');
+// ===================== STUDENT FEES & PAYMENTS =====================
 router.get('/fees/categories', (req, res) => FeeController.getCategories(req, res));
 router.post('/fees/categories', (req, res) => FeeController.createCategory(req, res));
 router.put('/fees/categories/:id', (req, res) => FeeController.updateCategory(req, res));
@@ -70,8 +106,7 @@ router.get('/fees/payments/:id', (req, res) => FeeController.getPayment(req, res
 router.post('/fees/payments', (req, res) => FeeController.recordPayment(req, res));
 router.get('/fees/stats', (req, res) => FeeController.getStats(req, res));
 
-// Timetable & Period Management Routes
-const TimetableController = require('../app/Http/Controllers/School/TimetableController');
+// ===================== TIMETABLE & PERIOD SLOTS =====================
 router.get('/period-slots', (req, res) => TimetableController.getPeriodSlots(req, res));
 router.post('/period-slots', (req, res) => TimetableController.createOrUpdatePeriodSlot(req, res));
 router.delete('/period-slots/:id', (req, res) => TimetableController.deletePeriodSlot(req, res));
@@ -82,13 +117,7 @@ router.get('/timetable/class/:class_id', (req, res) => TimetableController.getCl
 router.get('/timetable/teacher/:teacher_id', (req, res) => TimetableController.getTeacherTimetable(req, res));
 router.post('/timetable/proxy', (req, res) => TimetableController.assignProxy(req, res));
 
-// Student Academic Sessions & Promotion Routes
-const StudentController = require('../app/Http/Controllers/Student/StudentController');
-router.get('/student-sessions', (req, res) => StudentController.getStudentSessions(req, res));
-router.post('/student-sessions/promote', (req, res) => StudentController.promoteStudents(req, res));
-
-// Transport Management Routes
-const TransportController = require('../app/Http/Controllers/School/TransportController');
+// ===================== TRANSPORT & LIVE TRACKING =====================
 router.get('/transport/routes', (req, res) => TransportController.getRoutes(req, res));
 router.post('/transport/routes', (req, res) => TransportController.createRoute(req, res));
 router.put('/transport/routes/:id', (req, res) => TransportController.updateRoute(req, res));
@@ -104,13 +133,14 @@ router.post('/transport/buses', (req, res) => TransportController.createBus(req,
 router.put('/transport/buses/:id', (req, res) => TransportController.updateBus(req, res));
 router.delete('/transport/buses/:id', (req, res) => TransportController.deleteBus(req, res));
 
-// Live Tracking Routes
 router.post('/transport/buses/location', (req, res) => TransportController.updateBusLocation(req, res));
 router.get('/transport/buses/live', (req, res) => TransportController.getLiveLocations(req, res));
 
 router.get('/transport/students', (req, res) => TransportController.getAssignedStudents(req, res));
 router.put('/transport/students/:id', (req, res) => TransportController.updateStudentTransport(req, res));
 
+// ===================== COMMON (SCHOOL PORTAL) =====================
+router.put('/common/status', SchoolCommonController.updateStatus);
+router.delete('/common/delete', SchoolCommonController.deleteEntity);
+
 module.exports = router;
-
-

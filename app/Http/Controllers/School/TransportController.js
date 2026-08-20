@@ -34,7 +34,19 @@ class TransportController extends BaseController {
   async getRoutes(req, res) {
     try {
       const routes = await BusRoute.findAll({
-        order: [['createdAt', 'DESC']]
+        include: [{
+          model: BusStop,
+          as: 'stops',
+          include: [{
+            model: Student,
+            as: 'students',
+            attributes: ['id', 'first_name', 'last_name', 'admission_number', 'grade', 'section', 'photo', 'gender']
+          }]
+        }],
+        order: [
+          ['createdAt', 'DESC'],
+          [{ model: BusStop, as: 'stops' }, 'sequence', 'ASC']
+        ]
       });
       return this.sendResponse(res, routes, 'Bus routes retrieved successfully');
     } catch (error) {
@@ -117,11 +129,19 @@ class TransportController extends BaseController {
 
   async createStop(req, res) {
     try {
-      const { route_id, stop_name, sequence, pickup_time, drop_off_time } = req.body;
+      const { route_id, stop_name, sequence, pickup_time, drop_off_time, latitude, longitude } = req.body;
       if (!route_id || !stop_name || sequence === undefined) {
         return this.sendError(res, 'Route ID, stop name, and sequence are required', 400);
       }
-      const stop = await BusStop.create({ route_id, stop_name, sequence, pickup_time, drop_off_time });
+      const stop = await BusStop.create({ 
+        route_id, 
+        stop_name, 
+        sequence, 
+        pickup_time, 
+        drop_off_time,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null
+      });
       return this.sendResponse(res, stop, 'Bus stop created successfully');
     } catch (error) {
       console.error(error);
@@ -132,12 +152,20 @@ class TransportController extends BaseController {
   async updateStop(req, res) {
     try {
       const { id } = req.params;
-      const { route_id, stop_name, sequence, pickup_time, drop_off_time } = req.body;
+      const { route_id, stop_name, sequence, pickup_time, drop_off_time, latitude, longitude } = req.body;
       const stop = await BusStop.findByPk(id);
       if (!stop) {
         return this.sendError(res, 'Bus stop not found', 404);
       }
-      await stop.update({ route_id, stop_name, sequence, pickup_time, drop_off_time });
+      await stop.update({ 
+        route_id, 
+        stop_name, 
+        sequence, 
+        pickup_time, 
+        drop_off_time,
+        latitude: latitude !== undefined ? (latitude ? parseFloat(latitude) : null) : stop.latitude,
+        longitude: longitude !== undefined ? (longitude ? parseFloat(longitude) : null) : stop.longitude
+      });
       return this.sendResponse(res, stop, 'Bus stop updated successfully');
     } catch (error) {
       console.error(error);

@@ -9,14 +9,12 @@ const teacherRoutes = require('./teacher');
 const studentRoutes = require('./student');
 const commonRoutes = require('./commonRoutes');
 
-// Group routes
-router.use('/school', SubscriptionCheckMiddleware, schoolRoutes);
-router.use('/admin', adminRoutes); // Super admin is exempt
-router.use('/teacher', SubscriptionCheckMiddleware, teacherRoutes);
-router.use('/teachers', SubscriptionCheckMiddleware, teacherRoutes);
-router.use('/student', SubscriptionCheckMiddleware, studentRoutes);
-router.use('/students', SubscriptionCheckMiddleware, studentRoutes);
-router.use('/common', SubscriptionCheckMiddleware, commonRoutes);
+// Active Role & Portal Routes
+router.use('/school', SubscriptionCheckMiddleware, schoolRoutes);   // School Management Portal
+router.use('/admin', adminRoutes);                                   // Super Admin Portal
+router.use('/teacher', SubscriptionCheckMiddleware, teacherRoutes); // Dedicated Teacher Portal / App
+router.use('/student', SubscriptionCheckMiddleware, studentRoutes); // Dedicated Student / Parent Portal / App
+router.use('/common', SubscriptionCheckMiddleware, commonRoutes);   // Common Global Routes
 
 const AttendanceController = require('../app/Http/Controllers/School/AttendanceController');
 

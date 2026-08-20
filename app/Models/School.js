@@ -36,6 +36,16 @@ const School = sequelize.define('School', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  latitude: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    defaultValue: 19.1136
+  },
+  longitude: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    defaultValue: 72.8697
+  },
   logo: {
     type: DataTypes.TEXT('long'),
     allowNull: true
