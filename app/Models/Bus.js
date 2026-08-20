@@ -28,6 +28,18 @@ const Bus = sequelize.define('Bus', {
     type: DataTypes.STRING,
     allowNull: true,
     unique: true
+  },
+  current_lat: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  current_lng: {
+    type: DataTypes.FLOAT,
+    allowNull: true
+  },
+  last_location_update: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'buses',

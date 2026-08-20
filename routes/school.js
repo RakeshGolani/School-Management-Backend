@@ -87,6 +87,30 @@ const StudentController = require('../app/Http/Controllers/Student/StudentContro
 router.get('/student-sessions', (req, res) => StudentController.getStudentSessions(req, res));
 router.post('/student-sessions/promote', (req, res) => StudentController.promoteStudents(req, res));
 
+// Transport Management Routes
+const TransportController = require('../app/Http/Controllers/School/TransportController');
+router.get('/transport/routes', (req, res) => TransportController.getRoutes(req, res));
+router.post('/transport/routes', (req, res) => TransportController.createRoute(req, res));
+router.put('/transport/routes/:id', (req, res) => TransportController.updateRoute(req, res));
+router.delete('/transport/routes/:id', (req, res) => TransportController.deleteRoute(req, res));
+
+router.get('/transport/stops', (req, res) => TransportController.getStops(req, res));
+router.post('/transport/stops', (req, res) => TransportController.createStop(req, res));
+router.put('/transport/stops/:id', (req, res) => TransportController.updateStop(req, res));
+router.delete('/transport/stops/:id', (req, res) => TransportController.deleteStop(req, res));
+
+router.get('/transport/buses', (req, res) => TransportController.getBuses(req, res));
+router.post('/transport/buses', (req, res) => TransportController.createBus(req, res));
+router.put('/transport/buses/:id', (req, res) => TransportController.updateBus(req, res));
+router.delete('/transport/buses/:id', (req, res) => TransportController.deleteBus(req, res));
+
+// Live Tracking Routes
+router.post('/transport/buses/location', (req, res) => TransportController.updateBusLocation(req, res));
+router.get('/transport/buses/live', (req, res) => TransportController.getLiveLocations(req, res));
+
+router.get('/transport/students', (req, res) => TransportController.getAssignedStudents(req, res));
+router.put('/transport/students/:id', (req, res) => TransportController.updateStudentTransport(req, res));
+
 module.exports = router;
 
 
