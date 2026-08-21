@@ -4,6 +4,7 @@ const {
   SubscriptionTransaction, 
   SchoolInvoice, 
   BillingSetting,
+  SystemSetting,
   Student,
   Bus,
   School
@@ -101,6 +102,12 @@ class SubscriptionController extends BaseController {
         billingConfig = await BillingSetting.create({});
       }
 
+      // 5. Fetch system settings
+      let systemSettings = await SystemSetting.findOne();
+      if (!systemSettings) {
+        systemSettings = await SystemSetting.create({});
+      }
+
       return this.sendResponse(res, {
         subscription,
         usage: {
@@ -115,7 +122,8 @@ class SubscriptionController extends BaseController {
         },
         transactions,
         invoices,
-        billingConfig
+        billingConfig,
+        systemSettings
       }, 'School subscription details retrieved successfully');
 
     } catch (error) {

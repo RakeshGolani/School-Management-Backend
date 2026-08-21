@@ -10,6 +10,7 @@ const Bus = require('./Bus');
 const AttendanceLog = require('./AttendanceLog');
 const BusAttendanceLog = require('./BusAttendanceLog');
 const BillingSetting = require('./BillingSetting');
+const SystemSetting = require('./SystemSetting');
 const SchoolSubscription = require('./SchoolSubscription');
 const SubscriptionTransaction = require('./SubscriptionTransaction');
 const SchoolInvoice = require('./SchoolInvoice');
@@ -181,6 +182,7 @@ module.exports = {
   AttendanceLog,
   BusAttendanceLog,
   BillingSetting,
+  SystemSetting,
   SchoolSubscription,
   SubscriptionTransaction,
   SchoolInvoice,

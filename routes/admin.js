@@ -5,6 +5,7 @@ const LoginRequest = require('../app/Http/Requests/Admin/LoginRequest');
 
 const AdminSchoolController = require('../app/Http/Controllers/Admin/AdminSchoolController');
 const SchoolRequest = require('../app/Http/Requests/Admin/SchoolRequest');
+const SystemSettingController = require('../app/Http/Controllers/Admin/SystemSettingController');
 
 const AdminStudentController = require('../app/Http/Controllers/Admin/AdminStudentController');
 const AdminTeacherController = require('../app/Http/Controllers/Admin/AdminTeacherController');
@@ -17,6 +18,7 @@ const { makeUploader } = require('../utils/UploadUtils');
 
 const uploadStudentPhoto = makeUploader('students', ['jpg', 'jpeg', 'png', 'webp']).single('photo');
 const uploadTeacherPhoto = makeUploader('teachers', ['jpg', 'jpeg', 'png', 'webp']).single('photo');
+const uploadSystemLogo = makeUploader('system', ['jpg', 'jpeg', 'png', 'webp']).single('logo');
 
 // Health Check
 router.get('/health', (req, res) => {
@@ -39,6 +41,7 @@ router.post('/schools', SchoolRequest.rules(), AdminSchoolController.store);
 router.put('/schools/:id', SchoolRequest.rules(), AdminSchoolController.update);
 router.delete('/schools/:id', AdminSchoolController.destroy);
 router.put('/schools/:id/status', AdminSchoolController.toggleStatus);
+router.put('/schools/:id/pricing', AdminSchoolController.updateCustomPricing);
 
 // --- Student Management (Admin) ---
 router.get('/students', AdminStudentController.index);
@@ -73,5 +76,10 @@ router.get('/sockets/clients', AdminSocketController.getClients);
 router.post('/sockets/disconnect/:socketId', AdminSocketController.disconnectClient);
 router.post('/sockets/broadcast', AdminSocketController.broadcast);
 router.delete('/sockets/logs', AdminSocketController.clearLogs);
+
+// ==========================================
+// System Profile Settings Routes
+router.get('/system-settings', SystemSettingController.getSettings);
+router.put('/system-settings', uploadSystemLogo, SystemSettingController.updateSettings);
 
 module.exports = router;

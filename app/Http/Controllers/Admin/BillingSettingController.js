@@ -28,7 +28,8 @@ class BillingSettingController extends BaseController {
           bus_fee_monthly: 100.00,
           bus_fee_yearly: 1000.00,
           yearly_discount_percent: 15.00,
-          tax_rate_percent: 18.00
+          tax_rate_percent: 18.00,
+          grace_period_days: 7
         });
       }
 
@@ -52,7 +53,8 @@ class BillingSettingController extends BaseController {
         bus_fee_monthly,
         bus_fee_yearly,
         yearly_discount_percent,
-        tax_rate_percent
+        tax_rate_percent,
+        grace_period_days
       } = req.body;
 
       let settings = await BillingSetting.findOne();
@@ -69,6 +71,7 @@ class BillingSettingController extends BaseController {
       if (bus_fee_yearly !== undefined) settings.bus_fee_yearly = bus_fee_yearly;
       if (yearly_discount_percent !== undefined) settings.yearly_discount_percent = yearly_discount_percent;
       if (tax_rate_percent !== undefined) settings.tax_rate_percent = tax_rate_percent;
+      if (grace_period_days !== undefined) settings.grace_period_days = grace_period_days;
 
       await settings.save();
 

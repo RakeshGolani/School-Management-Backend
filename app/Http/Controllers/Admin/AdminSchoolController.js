@@ -212,6 +212,7 @@ class AdminSchoolController {
     }
 
     try {
+      const { id } = req.params;
       const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo } = req.body;
 
       const school = await School.findByPk(id);
@@ -311,6 +312,52 @@ class AdminSchoolController {
     } catch (error) {
       console.error('Error updating school status:', error);
       return res.status(500).json({ success: false, message: 'Server error updating school status' });
+    }
+  }
+
+  // PUT /api/admin/schools/:id/pricing
+  static async updateCustomPricing(req, res) {
+    try {
+      const { id } = req.params;
+      const {
+        custom_base_fee_monthly,
+        custom_base_fee_yearly,
+        custom_student_fee_monthly,
+        custom_student_fee_yearly,
+        custom_bus_fee_monthly,
+        custom_bus_fee_yearly,
+        custom_discount_percent
+      } = req.body;
+
+      const school = await School.findByPk(id);
+      if (!school) {
+        return res.status(404).json({ success: false, message: 'School not found' });
+      }
+
+      let subscription = await SchoolSubscription.findOne({ where: { school_id: id } });
+      if (!subscription) {
+        return res.status(404).json({ success: false, message: 'Subscription not found for this school' });
+      }
+
+      // Update allowed fields
+      if (custom_base_fee_monthly !== undefined) subscription.custom_base_fee_monthly = custom_base_fee_monthly;
+      if (custom_base_fee_yearly !== undefined) subscription.custom_base_fee_yearly = custom_base_fee_yearly;
+      if (custom_student_fee_monthly !== undefined) subscription.custom_student_fee_monthly = custom_student_fee_monthly;
+      if (custom_student_fee_yearly !== undefined) subscription.custom_student_fee_yearly = custom_student_fee_yearly;
+      if (custom_bus_fee_monthly !== undefined) subscription.custom_bus_fee_monthly = custom_bus_fee_monthly;
+      if (custom_bus_fee_yearly !== undefined) subscription.custom_bus_fee_yearly = custom_bus_fee_yearly;
+      if (custom_discount_percent !== undefined) subscription.custom_discount_percent = custom_discount_percent;
+
+      await subscription.save();
+
+      return res.json({
+        success: true,
+        message: 'Custom pricing updated successfully',
+        data: subscription
+      });
+    } catch (error) {
+      console.error('Error updating custom pricing:', error);
+      return res.status(500).json({ success: false, message: 'Server error updating custom pricing' });
     }
   }
 }
