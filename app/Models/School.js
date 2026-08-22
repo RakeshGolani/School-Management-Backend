@@ -59,6 +59,14 @@ const School = sequelize.define('School', {
     type: DataTypes.ENUM('active', 'inactive', 'pending'),
     defaultValue: 'active'
   },
+  package_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'packages',
+      key: 'id'
+    }
+  },
   logo_url: {
     type: DataTypes.VIRTUAL,
     get() {

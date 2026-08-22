@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { School, AcademicYear } = require('../../../Models');
+const { School, AcademicYear, Package } = require('../../../Models');
 const SchoolResource = require('../../Resources/School/SchoolResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
 const bcrypt = require('bcryptjs');
@@ -52,7 +52,7 @@ class SchoolController extends BaseController {
    */
   async register(req, res) {
     try {
-      const { school_name, code, email, password, phone, address } = req.body;
+      const { school_name, code, email, password, phone, address, package_id } = req.body;
 
       // Check if email or school code already exists
       const existingSchool = await School.findOne({
@@ -71,6 +71,13 @@ class SchoolController extends BaseController {
         return this.sendError(res, 'A school with this registration code already exists.', 400);
       }
 
+      // Determine default package
+      let resolvedPackageId = package_id;
+      if (!resolvedPackageId) {
+        const fullSuitePkg = await Package.findOne({ where: { code: 'FULL_SUITE' } });
+        if (fullSuitePkg) resolvedPackageId = fullSuitePkg.id;
+      }
+
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -82,13 +89,18 @@ class SchoolController extends BaseController {
         password: hashedPassword,
         phone: phone || null,
         address: address || null,
+        package_id: resolvedPackageId,
         status: 'active'
       });
 
       // Auto-create active Current Academic Year for the new school
       await AcademicYear.create(getDefaultAcademicYearData(school.id));
 
-      const schoolData = new SchoolResource(school).toJson();
+      const schoolWithPackage = await School.findByPk(school.id, {
+        include: [{ model: Package, as: 'package' }]
+      });
+
+      const schoolData = new SchoolResource(schoolWithPackage || school).toJson();
       return this.sendResponse(res, schoolData, 'School account created successfully', 201);
     } catch (error) {
       console.error('Error registering school:', error);
@@ -107,8 +119,11 @@ class SchoolController extends BaseController {
         return this.sendError(res, 'Email and password fields are required.', 400);
       }
 
-      // Find school by email
-      const school = await School.findOne({ where: { email } });
+      // Find school by email with package
+      const school = await School.findOne({
+        where: { email },
+        include: [{ model: Package, as: 'package' }]
+      });
 
       if (!school) {
         return this.sendError(res, 'Invalid credentials: School account not found.', 401);
@@ -160,7 +175,9 @@ class SchoolController extends BaseController {
   async profile(req, res) {
     try {
       const { schoolId } = req.query;
-      const school = await School.findByPk(schoolId || 1);
+      const school = await School.findByPk(schoolId || 1, {
+        include: [{ model: Package, as: 'package' }]
+      });
 
       if (!school) {
         return this.sendError(res, 'School profile not found', 404);

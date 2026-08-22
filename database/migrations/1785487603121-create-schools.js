@@ -58,6 +58,16 @@ module.exports = {
         allowNull: true,
         defaultValue: '#f59e0b'
       },
+      package_id: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'packages',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL'
+      },
       createdAt: {
         type: Sequelize.DATE,
         allowNull: false,

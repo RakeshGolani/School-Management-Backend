@@ -82,4 +82,10 @@ router.delete('/sockets/logs', AdminSocketController.clearLogs);
 router.get('/system-settings', SystemSettingController.getSettings);
 router.put('/system-settings', uploadSystemLogo, SystemSettingController.updateSettings);
 
+// --- Packages Management ---
+const AdminPackageController = require('../app/Http/Controllers/Admin/AdminPackageController');
+router.get('/packages', AdminPackageController.index);
+router.get('/packages/:id', AdminPackageController.show);
+router.put('/packages/:id', AdminPackageController.update);
+
 module.exports = router;

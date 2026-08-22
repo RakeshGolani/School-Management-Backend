@@ -1,5 +1,6 @@
 const { 
   sequelize, 
+  Package,
   School, 
   Admin, 
   Teacher, 
@@ -26,10 +27,46 @@ async function seedDatabase() {
     // Generate real bcrypt hash for default password '123456'
     const defaultPassword = await bcrypt.hash('123456', 10);
 
+    // 0. Seed Default Packages
+    console.log('Seeding SaaS Packages...');
+    const [transportPkg, schoolPkg, fullSuitePkg] = await Package.bulkCreate([
+      {
+        code: 'TRANSPORT_ONLY',
+        name: 'Smart Bus & Transport Only',
+        description: 'Dedicated fleet tracking, real-time GPS road navigation, student transit NFC & morning/evening bus pickup.',
+        icon: 'Bus',
+        badge_color: 'amber',
+        modules: ['transport', 'students'],
+        is_active: true,
+        sort_order: 1
+      },
+      {
+        code: 'SCHOOL_ONLY',
+        name: 'School ERP Standard',
+        description: 'Comprehensive academic institution ERP with classes, teachers, student directory, timetables, fees and classroom attendance.',
+        icon: 'GraduationCap',
+        badge_color: 'primary',
+        modules: ['academics', 'teachers', 'students', 'timetable', 'fees', 'attendance', 'academic_years'],
+        is_active: true,
+        sort_order: 2
+      },
+      {
+        code: 'FULL_SUITE',
+        name: 'Full Suite (School + Smart Bus)',
+        description: 'All-in-one institutional operating system combining complete academic management with live GPS Smart Bus fleet transit.',
+        icon: 'Sparkles',
+        badge_color: 'indigo',
+        modules: ['academics', 'teachers', 'students', 'timetable', 'fees', 'attendance', 'academic_years', 'transport'],
+        is_active: true,
+        sort_order: 3
+      }
+    ], { returning: true });
+
     // 1. Create Default School Institution
     console.log('Seeding Schools...');
     const school = await School.create({
       code: 'SCH-1001',
+      package_id: fullSuitePkg ? fullSuitePkg.id : 3,
       school_name: 'Greenwood International School',
       email: 'school@gmail.com',
       password: defaultPassword,

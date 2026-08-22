@@ -21,7 +21,11 @@ const SchoolClass = require('./SchoolClass');
 const FeeCategory = require('./FeeCategory');
 const StudentFee = require('./StudentFee');
 const FeePayment = require('./FeePayment');
+const Package = require('./Package');
 
+// 0. Package - School Relationships
+Package.hasMany(School, { foreignKey: 'package_id', as: 'schools' });
+School.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
 
 // 1. Parent - Student Relationships
 Parent.hasMany(Student, { foreignKey: 'parent_id', as: 'children' });
@@ -172,6 +176,7 @@ TeacherProxy.belongsTo(Teacher, { foreignKey: 'substitute_teacher_id', as: 'subs
 module.exports = {
   sequelize,
   School,
+  Package,
   Admin,
   Teacher,
   Parent,

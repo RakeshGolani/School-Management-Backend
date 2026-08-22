@@ -24,6 +24,21 @@ class SchoolResource extends BaseResource {
       logo: logoUrl,
       status: this.resource.status || 'active',
       primaryColor: this.resource.primary_color || '#14b8a6',
+      package: this.resource.package ? {
+        id: this.resource.package.id,
+        code: this.resource.package.code,
+        name: this.resource.package.name,
+        icon: this.resource.package.icon,
+        badgeColor: this.resource.package.badge_color,
+        modules: this.resource.package.modules || []
+      } : {
+        id: null,
+        code: 'FULL_SUITE',
+        name: 'Full Suite',
+        icon: 'Layers',
+        badgeColor: 'indigo',
+        modules: ['academics', 'teachers', 'students', 'timetable', 'fees', 'attendance', 'academic_years', 'transport']
+      },
       createdAt: this.resource.createdAt
     };
   }

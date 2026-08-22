@@ -1,5 +1,5 @@
 const { validationResult } = require('express-validator');
-const { School, Admin, SchoolSubscription, AcademicYear } = require('../../../Models');
+const { School, Admin, SchoolSubscription, AcademicYear, Package } = require('../../../Models');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const emailService = require('../../../../utils/EmailService');
@@ -38,6 +38,13 @@ class AdminSchoolController {
   static async index(req, res) {
     try {
       const schools = await School.findAll({
+        include: [
+          {
+            model: Package,
+            as: 'package',
+            attributes: ['id', 'code', 'name', 'icon', 'badge_color', 'modules']
+          }
+        ],
         order: [['createdAt', 'DESC']]
       });
       return res.json({
@@ -67,6 +74,11 @@ class AdminSchoolController {
 
       const school = await School.findByPk(id, {
         include: [
+          {
+            model: Package,
+            as: 'package',
+            attributes: ['id', 'code', 'name', 'icon', 'badge_color', 'modules']
+          },
           {
             model: SchoolSubscription,
             as: 'subscription'
@@ -144,7 +156,7 @@ class AdminSchoolController {
     }
 
     try {
-      const { school_name, code, email, password, phone, address, primary_color, background_color, logo } = req.body;
+      const { school_name, code, email, password, phone, address, primary_color, background_color, logo, package_id } = req.body;
 
       // Check for unique email
       const existingEmail = await School.findOne({ where: { email } });
@@ -156,6 +168,13 @@ class AdminSchoolController {
       const existingCode = await School.findOne({ where: { code } });
       if (existingCode) {
         return res.status(422).json({ success: false, errors: { code: 'School code already exists' } });
+      }
+
+      // Determine package_id fallback if not provided (default to FULL_SUITE package)
+      let resolvedPackageId = package_id;
+      if (!resolvedPackageId) {
+        const defaultPkg = await Package.findOne({ where: { code: 'FULL_SUITE' } });
+        if (defaultPkg) resolvedPackageId = defaultPkg.id;
       }
 
       // Generate random password if not provided by Super Admin
@@ -170,6 +189,7 @@ class AdminSchoolController {
         phone,
         address,
         logo,
+        package_id: resolvedPackageId,
         primary_color: primary_color || '#14b8a6',
         background_color: background_color || '#0f172a',
         status: 'active'
@@ -189,10 +209,14 @@ class AdminSchoolController {
         console.error('Asynchronous credentials email dispatch error:', err);
       });
 
+      const schoolWithPackage = await School.findByPk(school.id, {
+        include: [{ model: Package, as: 'package' }]
+      });
+
       return res.status(201).json({
         success: true,
         message: 'School created successfully and credentials sent to email',
-        data: school
+        data: schoolWithPackage || school
       });
     } catch (error) {
       console.error('Error creating school:', error);
@@ -213,7 +237,7 @@ class AdminSchoolController {
 
     try {
       const { id } = req.params;
-      const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo } = req.body;
+      const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo, package_id } = req.body;
 
       const school = await School.findByPk(id);
       if (!school) {
@@ -247,6 +271,10 @@ class AdminSchoolController {
         primary_color: primary_color || '#14b8a6'
       };
 
+      if (package_id !== undefined) {
+        updateData.package_id = package_id ? parseInt(package_id) : null;
+      }
+
       if (logo !== undefined && logo !== null && logo !== '') {
         updateData.logo = logo;
       }
@@ -257,10 +285,14 @@ class AdminSchoolController {
 
       await school.update(updateData);
 
+      const updatedSchool = await School.findByPk(id, {
+        include: [{ model: Package, as: 'package' }]
+      });
+
       return res.json({
         success: true,
         message: 'School updated successfully',
-        data: school
+        data: updatedSchool || school
       });
     } catch (error) {
       console.error('Error updating school:', error);
