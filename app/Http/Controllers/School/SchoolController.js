@@ -165,7 +165,7 @@ class SchoolController extends BaseController {
       );
     } catch (error) {
       console.error('Error during school login:', error);
-      return this.sendError(res, 'Internal server error during authentication', 500);
+      return this.sendError(res, 'Internal server error during authentication: ' + error.message, 500);
     }
   }
 
