@@ -41,6 +41,9 @@ SchoolClass.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 SchoolClass.hasMany(Student, { foreignKey: 'class_id', as: 'students' });
 Student.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
 
+School.hasMany(Student, { foreignKey: 'school_id', as: 'students' });
+Student.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
 // 3. Student - AcademicYear / AcademicSession Relationships
 AcademicYear.hasMany(StudentAcademicSession, { foreignKey: 'academic_year_id', as: 'studentSessions' });
 StudentAcademicSession.belongsTo(AcademicYear, { foreignKey: 'academic_year_id', as: 'academicYear' });

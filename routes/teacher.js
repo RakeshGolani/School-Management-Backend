@@ -1,9 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const TeacherController = require('../app/Http/Controllers/Teacher/TeacherController');
+const TeacherLoginRequest = require('../app/Http/Requests/Teacher/TeacherLoginRequest');
+const { makeUploader } = require('../utils/UploadUtils');
 
-// Dedicated Teacher Portal Routes
+const uploadTeacherPhoto = makeUploader('teachers', ['jpg', 'jpeg', 'png', 'webp']).single('photo');
+
+// ===================== TEACHER AUTH & SESSION =====================
+router.post('/login', TeacherLoginRequest.rules(), TeacherController.login);
+router.post('/logout', TeacherController.logout);
+router.get('/profile', TeacherController.profile);
+router.put('/profile', uploadTeacherPhoto, TeacherController.updateProfile);
+
+// ===================== TEACHER PORTAL & APP DATA =====================
 router.get('/', TeacherController.index);
 router.get('/:id', TeacherController.show);
+router.put('/:id', uploadTeacherPhoto, TeacherController.updateProfile);
 
 module.exports = router;
