@@ -11,6 +11,7 @@ const ClassController = require('../app/Http/Controllers/School/ClassController'
 const FeeController = require('../app/Http/Controllers/School/FeeController');
 const TimetableController = require('../app/Http/Controllers/School/TimetableController');
 const TransportController = require('../app/Http/Controllers/School/TransportController');
+const SchoolLeaveController = require('../app/Http/Controllers/School/SchoolLeaveController');
 
 const SchoolDashboardController = require('../app/Http/Controllers/School/SchoolDashboardController');
 
@@ -138,6 +139,10 @@ router.get('/transport/buses/live', (req, res) => TransportController.getLiveLoc
 
 router.get('/transport/students', (req, res) => TransportController.getAssignedStudents(req, res));
 router.put('/transport/students/:id', (req, res) => TransportController.updateStudentTransport(req, res));
+
+// ===================== STUDENT LEAVE MANAGEMENT (INSTITUTIONAL) =====================
+router.get('/leaves', (req, res) => SchoolLeaveController.index(req, res));
+router.put('/leaves/:id/review', (req, res) => SchoolLeaveController.review(req, res));
 
 // ===================== COMMON (SCHOOL PORTAL) =====================
 router.put('/common/status', SchoolCommonController.updateStatus);

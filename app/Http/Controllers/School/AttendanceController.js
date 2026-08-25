@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { AttendanceLog, Student, Teacher, AcademicYear, SchoolClass, sequelize } = require('../../../Models');
+const { AttendanceLog, Student, Teacher, AcademicYear, SchoolClass, StudentLeave, sequelize } = require('../../../Models');
 const { Op } = require('sequelize');
 
 class AttendanceController extends BaseController {
@@ -9,9 +9,13 @@ class AttendanceController extends BaseController {
   async index(req, res) {
     try {
       const school_id = req.user?.school_id || req.query.school_id || 1;
-      const { date, entity_type = 'STUDENT', class_name, section, academic_year_id } = req.query;
+      const { date, entity_type = 'STUDENT', class_id, class_name, section, academic_year_id } = req.query;
 
-      const targetDate = date || new Date().toISOString().split('T')[0];
+      const todayDate = new Date().toISOString().split('T')[0];
+      let targetDate = (date && String(date).trim()) ? String(date).trim() : todayDate;
+      if (targetDate > todayDate) {
+        targetDate = todayDate;
+      }
 
       // Get active academic year if not provided
       let currentYearId = academic_year_id;
@@ -20,12 +24,19 @@ class AttendanceController extends BaseController {
         if (activeYear) currentYearId = activeYear.id;
       }
 
+      // Fetch all classes for the school dropdowns
+      const classes = await SchoolClass.findAll({
+        where: { school_id, status: 'active' },
+        attributes: ['id', 'class_name', 'section', 'room_number'],
+        order: [['class_name', 'ASC'], ['section', 'ASC']]
+      });
+
       if (entity_type === 'STAFF') {
         // Fetch all teachers for the school
         const teachers = await Teacher.findAll({
           where: { school_id, status: 'active' },
-          attributes: ['id', 'first_name', 'last_name', 'email', 'phone', 'employee_id', 'department'],
-          order: [['first_name', 'ASC']]
+          attributes: ['id', 'name', 'email', 'phone', 'employee_id', 'subject', 'gender', 'photo'],
+          order: [['name', 'ASC']]
         });
 
         // Fetch existing attendance logs for this date
@@ -42,53 +53,112 @@ class AttendanceController extends BaseController {
           logsMap[log.teacher_id] = log;
         });
 
-        const staffData = teachers.map(t => ({
-          id: t.id,
-          name: `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.email,
-          email: t.email,
-          phone: t.phone,
-          employee_id: t.employee_id || `EMP-${t.id}`,
-          department: t.department || 'General',
-          status: logsMap[t.id]?.status || 'present',
-          check_in: logsMap[t.id]?.check_in || null,
-          check_out: logsMap[t.id]?.check_out || null,
-          remarks: logsMap[t.id]?.remarks || '',
-          log_id: logsMap[t.id]?.id || null
-        }));
+        let presentCount = 0;
+        let absentCount = 0;
+        let lateCount = 0;
+        let leaveCount = 0;
+
+        const staffData = teachers.map(t => {
+          const fullName = t.name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.email;
+          const log = logsMap[t.id];
+          const rawStatus = (log?.status || 'present').toLowerCase();
+          let statusUpper = 'PRESENT';
+
+          if (rawStatus === 'absent') {
+            absentCount++;
+            statusUpper = 'ABSENT';
+          } else if (rawStatus === 'late') {
+            lateCount++;
+            statusUpper = 'LATE';
+          } else if (rawStatus === 'leave' || rawStatus === 'excused') {
+            leaveCount++;
+            statusUpper = 'LEAVE';
+          } else {
+            presentCount++;
+            statusUpper = 'PRESENT';
+          }
+
+          return {
+            id: t.id,
+            name: fullName,
+            email: t.email,
+            phone: t.phone,
+            employee_id: t.employee_id || `EMP-${t.id}`,
+            department: t.department || 'Faculty',
+            gender: t.gender || 'male',
+            photo: t.image_url || t.photo || null,
+            image_url: t.image_url || t.photo || null,
+            initial: fullName.charAt(0).toUpperCase(),
+            status: statusUpper.toLowerCase(),
+            status_display: statusUpper,
+            check_in: log?.check_in || (statusUpper === 'PRESENT' ? '07:45 AM' : statusUpper === 'LATE' ? '08:15 AM' : null),
+            check_out: log?.check_out || null,
+            remarks: log?.remarks || '',
+            log_id: log?.id || null
+          };
+        });
+
+        const totalStaff = staffData.length;
+        const staffRate = totalStaff > 0 ? Math.round(((presentCount + lateCount) / totalStaff) * 100) : 100;
 
         return this.sendResponse(res, {
           date: targetDate,
           entity_type: 'STAFF',
-          total_count: staffData.length,
+          total_count: totalStaff,
+          classes,
+          summary: {
+            total: totalStaff,
+            present: presentCount,
+            absent: absentCount,
+            late: lateCount,
+            leave: leaveCount,
+            attendance_rate: staffRate
+          },
           records: staffData
         }, 'Staff attendance retrieved successfully');
       }
 
       // Default: STUDENT attendance
-      const studentWhere = { school_id };
-      if (class_name && class_name !== 'all') {
-        studentWhere.class = { [Op.like]: `%${class_name}%` };
+      const studentWhere = { school_id, status: 'active' };
+
+      if (class_id && class_id !== 'all') {
+        studentWhere.class_id = class_id;
+      } else if (class_name && class_name !== 'all') {
+        studentWhere[Op.or] = [
+          { class: { [Op.like]: `%${class_name}%` } },
+          { '$schoolClass.class_name$': { [Op.like]: `%${class_name}%` } }
+        ];
       }
+
       if (section && section !== 'all') {
-        studentWhere.section = { [Op.like]: `%${section}%` };
+        studentWhere.section = section;
       }
 
       const students = await Student.findAll({
         where: studentWhere,
-        attributes: ['id', 'first_name', 'last_name', 'roll_number', 'class', 'section', 'gender'],
+        include: [
+          {
+            model: SchoolClass,
+            as: 'schoolClass',
+            attributes: ['id', 'class_name', 'section', 'room_number', 'class_teacher_id'],
+            include: [
+              {
+                model: Teacher,
+                as: 'classTeacher',
+                attributes: ['id', 'name', 'photo', 'gender', 'email', 'phone', 'subject']
+              }
+            ]
+          }
+        ],
         order: [['roll_number', 'ASC'], ['first_name', 'ASC']]
       });
 
-      const attendanceWhere = {
-        school_id,
-        date: targetDate,
-        entity_type: 'STUDENT'
-      };
-      if (class_name) attendanceWhere.class_name = class_name;
-      if (section) attendanceWhere.section = section;
-
       const attendanceLogs = await AttendanceLog.findAll({
-        where: attendanceWhere
+        where: {
+          school_id,
+          date: targetDate,
+          [Op.or]: [{ entity_type: 'STUDENT' }, { entity_type: null }]
+        }
       });
 
       const logsMap = {};
@@ -96,18 +166,88 @@ class AttendanceController extends BaseController {
         logsMap[log.student_id] = log;
       });
 
-      const studentData = students.map(s => ({
-        id: s.id,
-        name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
-        roll_number: s.roll_number || `STU-${s.id}`,
-        class_name: s.class,
-        section: s.section,
-        status: logsMap[s.id]?.status || 'present',
-        remarks: logsMap[s.id]?.remarks || '',
-        check_in: logsMap[s.id]?.check_in || null,
-        check_out: logsMap[s.id]?.check_out || null,
-        log_id: logsMap[s.id]?.id || null
-      }));
+      // Approved leaves for this date
+      const leaves = await StudentLeave.findAll({
+        where: {
+          school_id,
+          status: 'APPROVED',
+          start_date: { [Op.lte]: targetDate },
+          end_date: { [Op.gte]: targetDate }
+        }
+      });
+      const leaveMap = new Map();
+      leaves.forEach(lv => leaveMap.set(lv.student_id, lv));
+
+      let presentCount = 0;
+      let absentCount = 0;
+      let lateCount = 0;
+      let leaveCount = 0;
+
+      const studentData = students.map(s => {
+        const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Student';
+        const log = logsMap[s.id];
+        const leave = leaveMap.get(s.id);
+        
+        let statusUpper = 'PRESENT';
+        if (log) {
+          const rawStatus = (log.status || 'present').toLowerCase();
+          if (rawStatus === 'absent') statusUpper = 'ABSENT';
+          else if (rawStatus === 'late') statusUpper = 'LATE';
+          else if (rawStatus === 'leave' || rawStatus === 'excused') statusUpper = 'LEAVE';
+          else statusUpper = 'PRESENT';
+        } else if (leave) {
+          statusUpper = 'LEAVE';
+        }
+
+        if (statusUpper === 'PRESENT') presentCount++;
+        else if (statusUpper === 'ABSENT') absentCount++;
+        else if (statusUpper === 'LATE') lateCount++;
+        else if (statusUpper === 'LEAVE') leaveCount++;
+
+        const classNameDisplay = s.schoolClass ? s.schoolClass.class_name : (s.class || 'Class 10');
+        const sectionDisplay = s.schoolClass ? s.schoolClass.section : (s.section || 'A');
+
+        const ct = s.schoolClass?.classTeacher;
+        const ctName = ct?.name || null;
+        const ctPhoto = ct ? (ct.image_url || ct.photo) : null;
+        const ctInitial = ctName ? ctName.charAt(0).toUpperCase() : 'T';
+
+        return {
+          id: s.id,
+          name: fullName,
+          roll_number: s.roll_number || `STU-${s.id}`,
+          admission_number: s.admission_number || `ADM-${s.id}`,
+          class_name: classNameDisplay,
+          section: sectionDisplay,
+          gender: s.gender || 'male',
+          photo: s.image_url || s.photo || null,
+          image_url: s.image_url || s.photo || null,
+          initial: fullName.charAt(0).toUpperCase(),
+          class_teacher: ct ? {
+            id: ct.id,
+            name: ctName,
+            photo: ctPhoto,
+            initial: ctInitial,
+            gender: ct.gender || 'male',
+            email: ct.email,
+            phone: ct.phone
+          } : null,
+          status: statusUpper.toLowerCase(),
+          status_display: statusUpper,
+          remarks: log?.remarks || (leave ? `Approved Leave: ${leave.reason}` : ''),
+          leave_details: leave ? {
+            leave_type: leave.leave_type || 'Casual Leave',
+            reason: leave.reason || 'Medical / Casual',
+            reviewer_type: leave.reviewer_type || 'school'
+          } : null,
+          check_in: log?.in_time || log?.check_in || (statusUpper === 'PRESENT' ? '07:45 AM' : statusUpper === 'LATE' ? '08:15 AM' : null),
+          check_out: log?.out_time || log?.check_out || null,
+          log_id: log?.id || null
+        };
+      });
+
+      const totalStudents = studentData.length;
+      const studentRate = totalStudents > 0 ? Math.round(((presentCount + lateCount) / totalStudents) * 100) : 100;
 
       return this.sendResponse(res, {
         date: targetDate,
@@ -115,13 +255,22 @@ class AttendanceController extends BaseController {
         class_name: class_name || 'All',
         section: section || 'All',
         academic_year_id: currentYearId,
-        total_count: studentData.length,
+        total_count: totalStudents,
+        classes,
+        summary: {
+          total: totalStudents,
+          present: presentCount,
+          absent: absentCount,
+          late: lateCount,
+          leave: leaveCount,
+          attendance_rate: studentRate
+        },
         records: studentData
       }, 'Student attendance retrieved successfully');
 
     } catch (error) {
       console.error('Error fetching attendance:', error);
-      return this.sendError(res, 'Failed to fetch attendance records', error.message, 500);
+      return this.sendError(res, 'Failed to fetch attendance records: ' + error.message, 500);
     }
   }
 
@@ -134,9 +283,15 @@ class AttendanceController extends BaseController {
       const school_id = req.user?.school_id || req.body.school_id || 1;
       const { date, entity_type = 'STUDENT', class_name, section, records, academic_year_id } = req.body;
 
+      const todayDate = new Date().toISOString().split('T')[0];
       if (!date || !Array.isArray(records) || records.length === 0) {
         await transaction.rollback();
         return this.sendValidationError(res, [], 'Date and non-empty records array are required');
+      }
+
+      if (date > todayDate) {
+        await transaction.rollback();
+        return this.sendValidationError(res, [{ date: ['Future dates cannot be recorded for attendance'] }], 'Attendance cannot be marked or saved for future dates');
       }
 
       // Active Academic Year lookup

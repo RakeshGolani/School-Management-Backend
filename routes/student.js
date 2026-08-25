@@ -13,6 +13,20 @@ router.post('/login', StudentLoginRequest.rules(), StudentController.login);
 router.post('/logout', StudentController.logout);
 router.get('/profile', StudentController.profile);
 router.put('/profile', uploadStudentPhoto, StudentController.updateProfile);
+router.get('/dashboard', StudentController.getDashboard);
+
+// ===================== STUDENT TIMETABLE & SCHEDULE =====================
+router.get('/timetable', StudentController.getTimetable);
+
+// ===================== STUDENT ATTENDANCE TELEMETRY =====================
+router.get('/attendance', StudentController.getAttendance);
+
+// ===================== STUDENT TRANSPORT & SMART BUS =====================
+router.get('/transport', StudentController.getTransport);
+
+// ===================== STUDENT LEAVE MANAGEMENT =====================
+router.get('/leaves', StudentController.getLeaves);
+router.post('/leaves', StudentController.applyLeave);
 
 // ===================== STUDENT PORTAL & APP DATA =====================
 router.get('/', StudentController.index);

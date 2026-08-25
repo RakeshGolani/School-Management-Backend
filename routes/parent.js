@@ -12,6 +12,9 @@ router.get('/profile', ParentController.profile);
 router.get('/children', ParentController.children);
 
 // ===================== PARENT PORTAL & APP DATA =====================
+router.get('/bus-tracking', ParentController.getBusTracking);
+router.get('/transport', ParentController.getBusTracking);
+router.get('/attendance', ParentController.getAttendance);
 router.get('/', ParentController.index);
 router.get('/:id', ParentController.show);
 

@@ -150,6 +150,7 @@ FeePayment.belongsTo(StudentFee, { foreignKey: 'student_fee_id', as: 'studentFee
 const PeriodSlot = require('./PeriodSlot');
 const Timetable = require('./Timetable');
 const TeacherProxy = require('./TeacherProxy');
+const StudentLeave = require('./StudentLeave');
 
 // 11. Timetable and Period Management Relationships
 School.hasMany(PeriodSlot, { foreignKey: 'school_id', as: 'periodSlots' });
@@ -175,6 +176,19 @@ TeacherProxy.belongsTo(Teacher, { foreignKey: 'original_teacher_id', as: 'origin
 
 Teacher.hasMany(TeacherProxy, { foreignKey: 'substitute_teacher_id', as: 'receivedProxies' });
 TeacherProxy.belongsTo(Teacher, { foreignKey: 'substitute_teacher_id', as: 'substituteTeacher' });
+
+// 12. Student Leave Management Relationships
+Student.hasMany(StudentLeave, { foreignKey: 'student_id', as: 'leaves' });
+StudentLeave.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+
+SchoolClass.hasMany(StudentLeave, { foreignKey: 'class_id', as: 'studentLeaves' });
+StudentLeave.belongsTo(SchoolClass, { foreignKey: 'class_id', as: 'schoolClass' });
+
+Teacher.hasMany(StudentLeave, { foreignKey: 'teacher_id', as: 'reviewedStudentLeaves' });
+StudentLeave.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
+
+School.hasMany(StudentLeave, { foreignKey: 'school_id', as: 'studentLeaves' });
+StudentLeave.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 
 module.exports = {
   sequelize,
@@ -203,6 +217,7 @@ module.exports = {
   FeePayment,
   PeriodSlot,
   Timetable,
-  TeacherProxy
+  TeacherProxy,
+  StudentLeave
 };
 

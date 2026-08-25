@@ -5,16 +5,23 @@ class TimetableController {
   // --- Period Slots Management ---
   async getPeriodSlots(req, res) {
     try {
-      const school_id = req.school_id || 1;
+      const school_id = req.user?.school_id || req.school_id || req.query.school_id || 1;
       const { academic_year_id } = req.query;
 
       const whereClause = { school_id };
       if (academic_year_id) whereClause.academic_year_id = academic_year_id;
 
-      const slots = await PeriodSlot.findAll({
+      let slots = await PeriodSlot.findAll({
         where: whereClause,
         order: [['period_number', 'ASC']]
       });
+
+      if (slots.length === 0 && academic_year_id) {
+        slots = await PeriodSlot.findAll({
+          where: { school_id },
+          order: [['period_number', 'ASC']]
+        });
+      }
 
       return res.status(200).json({
         success: true,
