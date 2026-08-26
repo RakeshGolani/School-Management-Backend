@@ -1,5 +1,6 @@
 const BaseController = require('../BaseController');
 const { Student, Parent, School, Package, SchoolClass, BusRoute, BusStop, Bus, BusAttendanceLog, Teacher, Timetable, PeriodSlot, TeacherProxy, AcademicYear, AttendanceLog, StudentLeave, sequelize } = require('../../../Models');
+const NotificationService = require('../../../Services/NotificationService');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 
@@ -1521,6 +1522,18 @@ class StudentController extends BaseController {
         teacher_remarks: null,
         reviewed_at: null
       });
+
+      // Dispatch notification to Class Teacher and School Admin
+      NotificationService.notifyLeaveApplication({
+        school_id: fullStudent.school_id,
+        leave_id: newLeave.id,
+        student_id: fullStudent.id,
+        class_id: fullStudent.class_id,
+        start_date,
+        end_date,
+        reason: reason.trim(),
+        days_count: diffDays
+      }).catch(err => console.error('Error dispatching leave application notification:', err));
 
       return this.sendResponse(res, newLeave, 'Leave application submitted successfully to Class Teacher', 201);
 

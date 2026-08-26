@@ -1,5 +1,6 @@
 const BaseController = require('../BaseController');
 const { Teacher, School, Package, SchoolClass, TeacherClassAssignment, Student, AttendanceLog, AcademicYear, Timetable, PeriodSlot, TeacherProxy, Parent, BusRoute, BusStop, StudentLeave, sequelize } = require('../../../Models');
+const NotificationService = require('../../../Services/NotificationService');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 
@@ -611,6 +612,20 @@ class TeacherController extends BaseController {
       }
 
       await transaction.commit();
+
+      // Dispatch notifications asynchronously for absent/late students
+      for (const item of records) {
+        const rawStatus = (item.status || '').toUpperCase();
+        if (rawStatus === 'ABSENT' || rawStatus === 'LATE') {
+          NotificationService.notifyAttendance({
+            school_id,
+            student_id: item.id,
+            date: targetDate,
+            status: rawStatus,
+            remarks: item.remarks || ''
+          }).catch(err => console.error('Error dispatching attendance notification:', err));
+        }
+      }
 
       return this.sendResponse(res, {
         date: targetDate,
@@ -1319,6 +1334,15 @@ class TeacherController extends BaseController {
           console.warn('Attendance sync notice on leave approval:', attErr.message);
         }
       }
+
+      // Dispatch notification to Parent & Student
+      NotificationService.notifyLeaveDecision({
+        school_id: leave.school_id,
+        leave_id: leave.id,
+        student_id: leave.student_id,
+        status: newStatus,
+        teacher_remarks: teacher_remarks || ''
+      }).catch(err => console.error('Error dispatching leave decision notification:', err));
 
       return this.sendResponse(res, leave, `Leave application marked as ${newStatus} successfully`);
 

@@ -1,5 +1,6 @@
 const BaseController = require('../BaseController');
 const { AttendanceLog, Student, Teacher, AcademicYear, SchoolClass, StudentLeave, sequelize } = require('../../../Models');
+const NotificationService = require('../../../Services/NotificationService');
 const { Op } = require('sequelize');
 
 class AttendanceController extends BaseController {
@@ -378,6 +379,22 @@ class AttendanceController extends BaseController {
       }
 
       await transaction.commit();
+
+      // Dispatch notifications asynchronously for absent/late students
+      if (entity_type === 'STUDENT') {
+        for (const item of records) {
+          const rawStatus = (item.status || '').toUpperCase();
+          if (rawStatus === 'ABSENT' || rawStatus === 'LATE') {
+            NotificationService.notifyAttendance({
+              school_id,
+              student_id: item.id,
+              date,
+              status: rawStatus,
+              remarks: item.remarks || ''
+            }).catch(err => console.error('Error dispatching attendance notification:', err));
+          }
+        }
+      }
 
       return this.sendResponse(res, { count: records.length, date }, 'Attendance saved successfully!');
     } catch (error) {

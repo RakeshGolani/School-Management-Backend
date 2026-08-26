@@ -1,5 +1,6 @@
 const BaseController = require('../BaseController');
 const { StudentLeave, Student, SchoolClass, Teacher, AttendanceLog, sequelize } = require('../../../Models');
+const NotificationService = require('../../../Services/NotificationService');
 const { Op } = require('sequelize');
 
 /**
@@ -247,6 +248,15 @@ class SchoolLeaveController extends BaseController {
           console.warn('Attendance sync notice on admin leave approval:', attErr.message);
         }
       }
+
+      // Dispatch notification to Parent & Student
+      NotificationService.notifyLeaveDecision({
+        school_id: leave.school_id,
+        leave_id: leave.id,
+        student_id: leave.student_id,
+        status: newStatus,
+        teacher_remarks: finalRemarks
+      }).catch(err => console.error('Error dispatching leave decision notification (Admin):', err));
 
       return this.sendResponse(res, leave, `Leave application marked as ${newStatus} by School Administration`);
 

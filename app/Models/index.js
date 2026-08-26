@@ -190,6 +190,19 @@ StudentLeave.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
 School.hasMany(StudentLeave, { foreignKey: 'school_id', as: 'studentLeaves' });
 StudentLeave.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
 
+const Notification = require('./Notification');
+const NotificationRead = require('./NotificationRead');
+
+// 13. Notification Relationships
+School.hasMany(Notification, { foreignKey: 'school_id', as: 'notifications' });
+Notification.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
+
+SchoolClass.hasMany(Notification, { foreignKey: 'target_class_id', as: 'classNotifications' });
+Notification.belongsTo(SchoolClass, { foreignKey: 'target_class_id', as: 'targetClass' });
+
+Notification.hasMany(NotificationRead, { foreignKey: 'notification_id', as: 'reads' });
+NotificationRead.belongsTo(Notification, { foreignKey: 'notification_id', as: 'notification' });
+
 module.exports = {
   sequelize,
   School,
@@ -218,6 +231,9 @@ module.exports = {
   PeriodSlot,
   Timetable,
   TeacherProxy,
-  StudentLeave
+  StudentLeave,
+  Notification,
+  NotificationRead
 };
+
 

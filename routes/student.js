@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const StudentController = require('../app/Http/Controllers/Student/StudentController');
+const StudentNotificationController = require('../app/Http/Controllers/Student/StudentNotificationController');
 const StudentLoginRequest = require('../app/Http/Requests/Student/StudentLoginRequest');
 const { makeUploader } = require('../utils/UploadUtils');
 
@@ -14,6 +15,12 @@ router.post('/logout', StudentController.logout);
 router.get('/profile', StudentController.profile);
 router.put('/profile', uploadStudentPhoto, StudentController.updateProfile);
 router.get('/dashboard', StudentController.getDashboard);
+
+// ===================== STUDENT NOTIFICATIONS =====================
+router.get('/notifications', StudentNotificationController.index);
+router.get('/notifications/unread-count', StudentNotificationController.getUnreadCount);
+router.patch('/notifications/read-all', StudentNotificationController.markAllAsRead);
+router.patch('/notifications/:id/read', StudentNotificationController.markAsRead);
 
 // ===================== STUDENT TIMETABLE & SCHEDULE =====================
 router.get('/timetable', StudentController.getTimetable);

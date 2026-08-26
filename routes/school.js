@@ -12,6 +12,7 @@ const FeeController = require('../app/Http/Controllers/School/FeeController');
 const TimetableController = require('../app/Http/Controllers/School/TimetableController');
 const TransportController = require('../app/Http/Controllers/School/TransportController');
 const SchoolLeaveController = require('../app/Http/Controllers/School/SchoolLeaveController');
+const SchoolNotificationController = require('../app/Http/Controllers/School/SchoolNotificationController');
 
 const SchoolDashboardController = require('../app/Http/Controllers/School/SchoolDashboardController');
 
@@ -143,6 +144,14 @@ router.put('/transport/students/:id', (req, res) => TransportController.updateSt
 // ===================== STUDENT LEAVE MANAGEMENT (INSTITUTIONAL) =====================
 router.get('/leaves', (req, res) => SchoolLeaveController.index(req, res));
 router.put('/leaves/:id/review', (req, res) => SchoolLeaveController.review(req, res));
+
+// ===================== NOTIFICATIONS & ANNOUNCEMENTS =====================
+router.get('/notifications', SchoolNotificationController.index);
+router.get('/notifications/unread-count', SchoolNotificationController.getUnreadCount);
+router.patch('/notifications/read-all', SchoolNotificationController.markAllAsRead);
+router.patch('/notifications/:id/read', SchoolNotificationController.markAsRead);
+router.post('/notifications/broadcast', SchoolNotificationController.broadcast);
+router.delete('/notifications/:id', SchoolNotificationController.destroy);
 
 // ===================== COMMON (SCHOOL PORTAL) =====================
 router.put('/common/status', SchoolCommonController.updateStatus);

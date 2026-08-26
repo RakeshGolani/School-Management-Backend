@@ -8,6 +8,7 @@ const {
   AcademicYear,
   sequelize 
 } = require('../../../Models');
+const NotificationService = require('../../../Services/NotificationService');
 const { Op } = require('sequelize');
 
 class FeeController extends BaseController {
@@ -288,6 +289,17 @@ class FeeController extends BaseController {
       await StudentFee.bulkCreate(allocationRecords, { transaction });
       await transaction.commit();
 
+      // Dispatch fee due alerts to parents
+      for (const sid of studentsToAllocate) {
+        NotificationService.notifyFeeDue({
+          school_id,
+          student_id: sid,
+          fee_title: category.name || 'School Fee',
+          amount: finalAmount,
+          due_date: finalDueDate
+        }).catch(err => console.error('Error dispatching fee due notification:', err));
+      }
+
       return this.sendResponse(
         res, 
         { allocatedCount: studentsToAllocate.length }, 
@@ -417,6 +429,15 @@ class FeeController extends BaseController {
       }, { transaction });
 
       await transaction.commit();
+
+      // Dispatch fee payment notification to Parent & Student
+      NotificationService.notifyFeePayment({
+        school_id,
+        student_id: studentFee.student_id,
+        fee_title: studentFee.feeCategory?.name || 'School Fee',
+        amount: pAmount,
+        receipt_no: receipt_number
+      }).catch(err => console.error('Error dispatching fee payment notification:', err));
 
       return this.sendResponse(
         res, 

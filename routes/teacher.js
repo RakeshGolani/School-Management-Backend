@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const TeacherController = require('../app/Http/Controllers/Teacher/TeacherController');
+const TeacherNotificationController = require('../app/Http/Controllers/Teacher/TeacherNotificationController');
 const TeacherLoginRequest = require('../app/Http/Requests/Teacher/TeacherLoginRequest');
 const { makeUploader } = require('../utils/UploadUtils');
 
@@ -12,6 +13,12 @@ router.post('/logout', TeacherController.logout);
 router.get('/profile', TeacherController.profile);
 router.put('/profile', uploadTeacherPhoto, TeacherController.updateProfile);
 router.get('/dashboard', TeacherController.getDashboard);
+
+// ===================== TEACHER NOTIFICATIONS =====================
+router.get('/notifications', TeacherNotificationController.index);
+router.get('/notifications/unread-count', TeacherNotificationController.getUnreadCount);
+router.patch('/notifications/read-all', TeacherNotificationController.markAllAsRead);
+router.patch('/notifications/:id/read', TeacherNotificationController.markAsRead);
 
 // ===================== TEACHER ATTENDANCE DESK =====================
 router.get('/attendance', TeacherController.getAttendance);
