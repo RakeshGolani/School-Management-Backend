@@ -48,6 +48,27 @@ class CommonController {
       });
     }
   }
+
+  static async getSystemSettings(req, res) {
+    try {
+      const { SystemSetting } = require('../../Models');
+      let settings = await SystemSetting.findOne();
+      if (!settings) {
+        settings = await SystemSetting.create({});
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'System settings retrieved successfully',
+        data: settings
+      });
+    } catch (error) {
+      console.error('CommonController getSystemSettings Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error'
+      });
+    }
+  }
 }
 
 module.exports = CommonController;

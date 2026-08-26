@@ -6,5 +6,6 @@ const CommonController = require('../app/Http/Controllers/CommonController');
 // For REST compliance, we'll use PUT for status and DELETE for delete (with body)
 router.put('/status', CommonController.updateStatus);
 router.delete('/delete', CommonController.deleteEntity);
+router.get('/system-settings', CommonController.getSystemSettings);
 
 module.exports = router;

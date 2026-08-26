@@ -23,7 +23,7 @@ class SchoolResource extends BaseResource {
       longitude: this.resource.longitude !== undefined && this.resource.longitude !== null ? parseFloat(this.resource.longitude) : 72.8697,
       logo: logoUrl,
       status: this.resource.status || 'active',
-      primaryColor: this.resource.primary_color || '#14b8a6',
+      primaryColor: this.resource.primary_color || '#0047AB',
       package: this.resource.package ? {
         id: this.resource.package.id,
         code: this.resource.package.code,

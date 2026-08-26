@@ -36,6 +36,9 @@ router.get('/health', (req, res) => {
   return res.status(200).json({ success: true, message: 'School API is healthy', data: { status: 'healthy' } });
 });
 
+// ===================== SYSTEM / SITE SETTINGS =====================
+router.get('/system-settings', SchoolCommonController.getSystemSettings);
+
 // ===================== DASHBOARD METRICS =====================
 router.get('/dashboard', SchoolDashboardController.getDashboardStats);
 

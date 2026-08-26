@@ -9,15 +9,15 @@ const SystemSetting = sequelize.define('SystemSetting', {
   },
   company_name: {
     type: DataTypes.STRING,
-    defaultValue: 'EduManage Cloud Solutions'
+    defaultValue: 'Vidyadmin'
   },
   tagline: {
     type: DataTypes.STRING,
-    defaultValue: 'Next-Generation School ERP'
+    defaultValue: 'Simplifying Education, Empowering Admins'
   },
   support_email: {
     type: DataTypes.STRING,
-    defaultValue: 'support@eduschool.io'
+    defaultValue: 'support@vidyadmin.com'
   },
   support_phone: {
     type: DataTypes.STRING,
@@ -25,7 +25,7 @@ const SystemSetting = sequelize.define('SystemSetting', {
   },
   address: {
     type: DataTypes.TEXT,
-    defaultValue: 'Tech Park Tower 4, Educational Corridor, Cyber City'
+    defaultValue: 'Vidyadmin Global HQ, Tech Horizon Tower'
   },
   gstin: {
     type: DataTypes.STRING,
@@ -33,7 +33,18 @@ const SystemSetting = sequelize.define('SystemSetting', {
   },
   logo_url: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: true,
+    get() {
+      const raw = this.getDataValue('logo_url');
+      if (raw && typeof raw === 'string' && raw.trim() !== '') {
+        if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:image')) {
+          return raw;
+        }
+        const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+        return `${baseUrl}${raw.startsWith('/') ? raw : `/${raw}`}`;
+      }
+      return null;
+    }
   }
 }, {
   tableName: 'system_settings',

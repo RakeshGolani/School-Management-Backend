@@ -53,7 +53,7 @@ const School = sequelize.define('School', {
   primary_color: {
     type: DataTypes.STRING,
     allowNull: true,
-    defaultValue: '#14b8a6'
+    defaultValue: '#0047AB'
   },
   status: {
     type: DataTypes.ENUM('active', 'inactive', 'pending'),
