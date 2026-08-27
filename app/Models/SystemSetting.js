@@ -7,6 +7,12 @@ const SystemSetting = sequelize.define('SystemSetting', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   company_name: {
     type: DataTypes.STRING,
     defaultValue: 'Vidyadmin'

@@ -7,6 +7,12 @@ const Bus = sequelize.define('Bus', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   bus_number: {
     type: DataTypes.STRING,
     allowNull: false,

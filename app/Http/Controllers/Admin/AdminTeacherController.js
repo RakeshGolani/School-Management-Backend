@@ -84,7 +84,7 @@ class AdminTeacherController extends BaseController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id, {
+      const teacher = await this.findByUuidOrPk(Teacher, id, {
         include: [
           { 
             model: TeacherClassAssignment, 
@@ -164,7 +164,7 @@ class AdminTeacherController extends BaseController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id);
+      const teacher = await this.findByUuidOrPk(Teacher, id);
       if (!teacher) {
         if (req.file) removeFile(req.file);
         return this.sendError(res, 'Teacher not found', 404);
@@ -200,7 +200,7 @@ class AdminTeacherController extends BaseController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id);
+      const teacher = await this.findByUuidOrPk(Teacher, id);
       if (!teacher) return this.sendError(res, 'Teacher not found', 404);
       if (teacher.photo) removeFile(teacher.photo);
       await teacher.destroy();

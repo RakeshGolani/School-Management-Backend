@@ -95,7 +95,7 @@ class AdminTransactionController {
     try {
       const { id } = req.params;
 
-      const transaction = await SubscriptionTransaction.findByPk(id, {
+      const transaction = await this.findByUuidOrPk(SubscriptionTransaction, id, {
         include: [
           {
             model: School,

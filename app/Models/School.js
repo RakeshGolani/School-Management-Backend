@@ -7,6 +7,12 @@ const School = sequelize.define('School', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   school_name: {
     type: DataTypes.STRING,
     allowNull: false

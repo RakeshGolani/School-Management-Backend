@@ -7,6 +7,12 @@ const NotificationRead = sequelize.define('NotificationRead', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   notification_id: {
     type: DataTypes.INTEGER,
     allowNull: false

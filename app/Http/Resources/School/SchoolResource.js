@@ -13,7 +13,9 @@ class SchoolResource extends BaseResource {
     }
 
     return {
-      id: this.resource.id,
+      uuid: this.resource.uuid,
+      id: this.resource.uuid || this.resource.id,
+      _id: this.resource.id,
       schoolName: this.resource.school_name,
       code: this.resource.code,
       email: this.resource.email,

@@ -7,6 +7,12 @@ const TeacherProxy = sequelize.define('TeacherProxy', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   timetable_id: {
     type: DataTypes.INTEGER,
     allowNull: false

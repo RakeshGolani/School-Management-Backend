@@ -73,7 +73,8 @@ async function seedDatabase() {
       phone: '+91 9876543200',
       address: 'Greenwood Campus, Main Highway Road, Andheri West, Mumbai',
       latitude: 19.1136,
-      longitude: 72.8697
+      longitude: 72.8697,
+      primary_color: '#0D9488'
     });
 
     // 1.1 Create Default Academic Year

@@ -77,7 +77,7 @@ class TransportController extends BaseController {
     try {
       const { id } = req.params;
       const { route_name, route_code } = req.body;
-      const route = await BusRoute.findByPk(id);
+      const route = await this.findByUuidOrPk(BusRoute, id);
       if (!route) {
         return this.sendError(res, 'Bus route not found', 404);
       }
@@ -92,7 +92,7 @@ class TransportController extends BaseController {
   async deleteRoute(req, res) {
     try {
       const { id } = req.params;
-      const route = await BusRoute.findByPk(id);
+      const route = await this.findByUuidOrPk(BusRoute, id);
       if (!route) {
         return this.sendError(res, 'Bus route not found', 404);
       }
@@ -153,7 +153,7 @@ class TransportController extends BaseController {
     try {
       const { id } = req.params;
       const { route_id, stop_name, sequence, pickup_time, drop_off_time, latitude, longitude } = req.body;
-      const stop = await BusStop.findByPk(id);
+      const stop = await this.findByUuidOrPk(BusStop, id);
       if (!stop) {
         return this.sendError(res, 'Bus stop not found', 404);
       }
@@ -176,7 +176,7 @@ class TransportController extends BaseController {
   async deleteStop(req, res) {
     try {
       const { id } = req.params;
-      const stop = await BusStop.findByPk(id);
+      const stop = await this.findByUuidOrPk(BusStop, id);
       if (!stop) {
         return this.sendError(res, 'Bus stop not found', 404);
       }
@@ -224,7 +224,7 @@ class TransportController extends BaseController {
     try {
       const { id } = req.params;
       const { bus_number, driver_name, driver_phone, route_id, device_id } = req.body;
-      const bus = await Bus.findByPk(id);
+      const bus = await this.findByUuidOrPk(Bus, id);
       if (!bus) {
         return this.sendError(res, 'Bus not found', 404);
       }
@@ -239,7 +239,7 @@ class TransportController extends BaseController {
   async deleteBus(req, res) {
     try {
       const { id } = req.params;
-      const bus = await Bus.findByPk(id);
+      const bus = await this.findByUuidOrPk(Bus, id);
       if (!bus) {
         return this.sendError(res, 'Bus not found', 404);
       }
@@ -270,7 +270,7 @@ class TransportController extends BaseController {
     try {
       const { id } = req.params; // Student ID
       const { is_bus_service_enabled, bus_route_id, bus_stop_id } = req.body;
-      const student = await Student.findByPk(id);
+      const student = await this.findByUuidOrPk(Student, id);
       if (!student) {
         return this.sendError(res, 'Student not found', 404);
       }

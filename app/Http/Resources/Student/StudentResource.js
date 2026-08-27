@@ -19,7 +19,9 @@ class StudentResource extends BaseResource {
     }
 
     return {
-      id: this.resource.id,
+      uuid: this.resource.uuid,
+      id: this.resource.uuid || this.resource.id,
+      _id: this.resource.id,
       schoolId: this.resource.school_id,
       school_id: this.resource.school_id,
       firstName: this.resource.first_name,

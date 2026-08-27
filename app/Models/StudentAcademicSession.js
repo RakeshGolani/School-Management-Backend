@@ -7,6 +7,12 @@ const StudentAcademicSession = sequelize.define('StudentAcademicSession', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   student_id: {
     type: DataTypes.INTEGER,
     allowNull: false

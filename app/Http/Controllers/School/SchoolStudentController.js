@@ -231,7 +231,7 @@ class SchoolStudentController extends BaseController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const student = await Student.findByPk(id, {
+      const student = await this.findByUuidOrPk(Student, id, {
         include: [
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
@@ -411,7 +411,7 @@ class SchoolStudentController extends BaseController {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const student = await Student.findByPk(id);
+      const student = await this.findByUuidOrPk(Student, id);
 
       if (!student) {
         if (req.file) removeFile(req.file);
@@ -478,7 +478,7 @@ class SchoolStudentController extends BaseController {
         );
       }
 
-      const updatedStudent = await Student.findByPk(id, {
+      const updatedStudent = await this.findByUuidOrPk(Student, id, {
         include: [
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' }
@@ -499,7 +499,7 @@ class SchoolStudentController extends BaseController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const student = await Student.findByPk(id);
+      const student = await this.findByUuidOrPk(Student, id);
 
       if (!student) return this.sendError(res, 'Student record not found', 404);
 
@@ -520,7 +520,7 @@ class SchoolStudentController extends BaseController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const student = await Student.findByPk(id);
+      const student = await this.findByUuidOrPk(Student, id);
 
       if (!student) return this.sendError(res, 'Student record not found', 404);
 

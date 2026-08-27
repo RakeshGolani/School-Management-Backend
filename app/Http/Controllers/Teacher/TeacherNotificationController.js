@@ -144,7 +144,7 @@ class TeacherNotificationController extends BaseController {
       const { id } = req.params;
       const { teacherId } = this.getTeacherContext(req);
 
-      const notification = await Notification.findByPk(id);
+      const notification = await this.findByUuidOrPk(Notification, id);
       if (!notification) {
         return res.status(404).json({ success: false, message: 'Notification not found' });
       }

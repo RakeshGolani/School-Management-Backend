@@ -72,7 +72,7 @@ class AdminSchoolController {
         SchoolInvoice 
       } = require("../../../Models");
 
-      const school = await School.findByPk(id, {
+      const school = await this.findByUuidOrPk(School, id, {
         include: [
           {
             model: Package,
@@ -239,7 +239,7 @@ class AdminSchoolController {
       const { id } = req.params;
       const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo, package_id } = req.body;
 
-      const school = await School.findByPk(id);
+      const school = await this.findByUuidOrPk(School, id);
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
       }
@@ -285,7 +285,7 @@ class AdminSchoolController {
 
       await school.update(updateData);
 
-      const updatedSchool = await School.findByPk(id, {
+      const updatedSchool = await this.findByUuidOrPk(School, id, {
         include: [{ model: Package, as: 'package' }]
       });
 
@@ -304,7 +304,7 @@ class AdminSchoolController {
   static async destroy(req, res) {
     try {
       const { id } = req.params;
-      const school = await School.findByPk(id);
+      const school = await this.findByUuidOrPk(School, id);
       
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
@@ -328,7 +328,7 @@ class AdminSchoolController {
       const { id } = req.params;
       const { status } = req.body;
       
-      const school = await School.findByPk(id);
+      const school = await this.findByUuidOrPk(School, id);
       
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
@@ -361,7 +361,7 @@ class AdminSchoolController {
         custom_discount_percent
       } = req.body;
 
-      const school = await School.findByPk(id);
+      const school = await this.findByUuidOrPk(School, id);
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
       }

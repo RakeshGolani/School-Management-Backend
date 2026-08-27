@@ -39,7 +39,9 @@ class TeacherResource extends BaseResource {
     const classAssignedStr = assignedClassesList.length > 0 ? assignedClassesList.join(', ') : (this.resource.class_assigned || '');
 
     return {
-      id: this.resource.id,
+      uuid: this.resource.uuid,
+      id: this.resource.uuid || this.resource.id,
+      _id: this.resource.id,
       schoolId: this.resource.school_id,
       employeeId: this.resource.employee_id || `EMP-${this.resource.id + 1000}`,
       name: this.resource.name,

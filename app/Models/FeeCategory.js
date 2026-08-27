@@ -7,6 +7,12 @@ const FeeCategory = sequelize.define('FeeCategory', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   school_id: {
     type: DataTypes.INTEGER,
     allowNull: false

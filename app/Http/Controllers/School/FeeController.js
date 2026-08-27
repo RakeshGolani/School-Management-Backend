@@ -82,7 +82,7 @@ class FeeController extends BaseController {
       const { id } = req.params;
       const { name, amount, due_date, description, academic_year_id } = req.body;
 
-      const category = await FeeCategory.findByPk(id);
+      const category = await this.findByUuidOrPk(FeeCategory, id);
       if (!category) {
         return this.sendError(res, 'Fee category not found', null, 404);
       }
@@ -109,7 +109,7 @@ class FeeController extends BaseController {
     try {
       const { id } = req.params;
 
-      const category = await FeeCategory.findByPk(id);
+      const category = await this.findByUuidOrPk(FeeCategory, id);
       if (!category) {
         return this.sendError(res, 'Fee category not found', null, 404);
       }
@@ -319,7 +319,7 @@ class FeeController extends BaseController {
     try {
       const { id } = req.params;
 
-      const studentFee = await StudentFee.findByPk(id);
+      const studentFee = await this.findByUuidOrPk(StudentFee, id);
       if (!studentFee) {
         return this.sendError(res, 'Fee allocation not found', null, 404);
       }

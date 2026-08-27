@@ -106,7 +106,7 @@ class TeacherController extends BaseController {
           name: teacher.school.school_name,
           code: teacher.school.code,
           logo_url: teacher.school.logo_url,
-          primary_color: teacher.school.primary_color || '#4f46e5',
+          primary_color: teacher.school.primary_color || '#0047AB',
           package: teacher.school.package ? {
             id: teacher.school.package.id,
             code: teacher.school.package.code,
@@ -205,7 +205,7 @@ class TeacherController extends BaseController {
           name: teacher.school.school_name,
           code: teacher.school.code,
           logo_url: teacher.school.logo_url,
-          primary_color: teacher.school.primary_color || '#4f46e5',
+          primary_color: teacher.school.primary_color || '#0047AB',
           package: teacher.school.package ? {
             id: teacher.school.package.id,
             code: teacher.school.package.code,
@@ -287,7 +287,7 @@ class TeacherController extends BaseController {
           name: teacher.school.school_name,
           code: teacher.school.code,
           logo_url: teacher.school.logo_url,
-          primary_color: teacher.school.primary_color || '#4f46e5',
+          primary_color: teacher.school.primary_color || '#0047AB',
           package: teacher.school.package ? {
             id: teacher.school.package.id,
             code: teacher.school.package.code,
@@ -1270,7 +1270,7 @@ class TeacherController extends BaseController {
         return this.sendError(res, "Review status must be either 'APPROVED' or 'REJECTED'.", 400);
       }
 
-      const leave = await StudentLeave.findByPk(id, {
+      const leave = await this.findByUuidOrPk(StudentLeave, id, {
         include: [
           { model: Student, as: 'student' },
           { model: SchoolClass, as: 'schoolClass' }

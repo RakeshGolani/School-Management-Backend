@@ -8,6 +8,12 @@ module.exports = {
         primaryKey: true,
         autoIncrement: true,
       },
+      uuid: {
+        type: Sequelize.UUID,
+        defaultValue: Sequelize.UUIDV4,
+        allowNull: false,
+        unique: true
+      },
       base_fee_monthly: {
         type: Sequelize.DECIMAL(10, 2),
         allowNull: false,

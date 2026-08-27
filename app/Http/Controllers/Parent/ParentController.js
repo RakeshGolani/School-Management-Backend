@@ -243,7 +243,7 @@ class ParentController extends BaseController {
           name: child.school.school_name,
           code: child.school.code,
           logo_url: child.school.logo_url,
-          primary_color: child.school.primary_color || '#4f46e5'
+          primary_color: child.school.primary_color || '#0047AB'
         } : null
       }));
 
@@ -371,7 +371,7 @@ class ParentController extends BaseController {
           name: child.school.school_name,
           code: child.school.code,
           logo_url: child.school.logo_url,
-          primary_color: child.school.primary_color || '#4f46e5'
+          primary_color: child.school.primary_color || '#0047AB'
         } : null
       }));
 
@@ -782,7 +782,7 @@ class ParentController extends BaseController {
           address: student.school?.address || 'Campus Gate',
           latitude: student.school?.latitude,
           longitude: student.school?.longitude,
-          primary_color: student.school?.primary_color || '#4f46e5',
+          primary_color: student.school?.primary_color || '#0047AB',
           logo_url: student.school?.logo_url || student.school?.logo
         }
       }, 'Ward transit telemetry retrieved successfully');
@@ -1062,7 +1062,7 @@ class ParentController extends BaseController {
         school: {
           name: student.school?.school_name || 'Greenwood International School',
           phone: student.school?.phone || '079-2658-9900',
-          primary_color: student.school?.primary_color || '#4f46e5',
+          primary_color: student.school?.primary_color || '#0047AB',
           logo_url: student.school?.logo_url || student.school?.logo
         }
       }, 'Ward attendance history retrieved successfully');
@@ -1207,7 +1207,7 @@ class ParentController extends BaseController {
           name: student.school?.school_name || 'Greenwood International School',
           phone: student.school?.phone || '079-2658-9900',
           email: student.school?.email || 'accounts@greenwood.edu',
-          primary_color: student.school?.primary_color || '#4f46e5',
+          primary_color: student.school?.primary_color || '#0047AB',
           logo_url: student.school?.logo_url || student.school?.logo
         }
       }, 'Ward fee details retrieved successfully');
@@ -1789,7 +1789,7 @@ class ParentController extends BaseController {
           name: student.school?.school_name || 'Greenwood International School',
           phone: student.school?.phone || '079-2658-9900',
           email: student.school?.email || 'accounts@greenwood.edu',
-          primary_color: student.school?.primary_color || '#4f46e5',
+          primary_color: student.school?.primary_color || '#0047AB',
           logo_url: student.school?.logo_url || student.school?.logo
         }
       }, 'Parent dashboard summary retrieved successfully');

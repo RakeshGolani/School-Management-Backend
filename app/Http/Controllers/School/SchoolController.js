@@ -195,10 +195,10 @@ class SchoolController extends BaseController {
    */
   async updateProfile(req, res) {
     try {
-      const { schoolId, school_name, email, phone, address, latitude, longitude, logo } = req.body;
+      const { schoolId, school_name, email, phone, address, latitude, longitude, primary_color, primaryColor, logo } = req.body;
       const targetId = schoolId || 1;
 
-      const school = await School.findByPk(targetId);
+      const school = await this.findByUuidOrPk(School, targetId);
 
       if (!school) {
         return this.sendError(res, 'School profile not found', 404);
@@ -210,6 +210,7 @@ class SchoolController extends BaseController {
       if (address !== undefined) school.address = address;
       if (latitude !== undefined) school.latitude = latitude ? parseFloat(latitude) : null;
       if (longitude !== undefined) school.longitude = longitude ? parseFloat(longitude) : null;
+      if (primary_color || primaryColor) school.primary_color = primary_color || primaryColor;
 
       // Handle file upload via Multer disk storage (matching aRoadRunner architecture)
       if (req.file) {

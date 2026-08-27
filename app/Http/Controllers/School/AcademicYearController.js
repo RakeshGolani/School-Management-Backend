@@ -103,7 +103,7 @@ class AcademicYearController extends BaseController {
       const { id } = req.params;
       const { year_name, start_date, end_date, is_active, status, description } = req.body;
 
-      const academicYear = await AcademicYear.findByPk(id);
+      const academicYear = await this.findByUuidOrPk(AcademicYear, id);
       if (!academicYear) {
         return this.sendError(res, 'Academic year not found', null, 404);
       }
@@ -140,7 +140,7 @@ class AcademicYearController extends BaseController {
     try {
       const { id } = req.params;
 
-      const academicYear = await AcademicYear.findByPk(id, { transaction });
+      const academicYear = await this.findByUuidOrPk(AcademicYear, id, { transaction });
       if (!academicYear) {
         await transaction.rollback();
         return this.sendError(res, 'Academic year not found', null, 404);
@@ -235,7 +235,7 @@ class AcademicYearController extends BaseController {
     try {
       const { id } = req.params;
 
-      const academicYear = await AcademicYear.findByPk(id);
+      const academicYear = await this.findByUuidOrPk(AcademicYear, id);
       if (!academicYear) {
         return this.sendError(res, 'Academic year not found', null, 404);
       }

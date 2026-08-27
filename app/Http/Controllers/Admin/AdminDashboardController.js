@@ -98,7 +98,7 @@ class AdminDashboardController extends BaseController {
       const { id } = req.params;
       const { name, email, phone, password } = req.body;
 
-      const admin = await Admin.findByPk(id);
+      const admin = await this.findByUuidOrPk(Admin, id);
       if (!admin) {
         return this.sendError(res, 'Admin account not found', 404);
       }

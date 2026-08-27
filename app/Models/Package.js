@@ -7,6 +7,12 @@ const Package = sequelize.define('Package', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   code: {
     type: DataTypes.STRING(50),
     allowNull: false,

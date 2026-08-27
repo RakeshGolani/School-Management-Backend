@@ -129,7 +129,7 @@ class SchoolTeacherController extends BaseController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id, {
+      const teacher = await this.findByUuidOrPk(Teacher, id, {
         include: [
           { 
             model: TeacherClassAssignment, 
@@ -291,7 +291,7 @@ class SchoolTeacherController extends BaseController {
     const transaction = await sequelize.transaction();
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id, { transaction });
+      const teacher = await this.findByUuidOrPk(Teacher, id, { transaction });
 
       if (!teacher) {
         await transaction.rollback();
@@ -422,7 +422,7 @@ class SchoolTeacherController extends BaseController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const teacher = await Teacher.findByPk(id);
+      const teacher = await this.findByUuidOrPk(Teacher, id);
 
       if (!teacher) {
         return this.sendError(res, 'Teacher record not found', 404);

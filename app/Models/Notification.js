@@ -7,6 +7,12 @@ const Notification = sequelize.define('Notification', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   school_id: {
     type: DataTypes.INTEGER,
     allowNull: false

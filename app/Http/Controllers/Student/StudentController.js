@@ -161,7 +161,7 @@ class StudentController extends BaseController {
           name: student.school.school_name,
           code: student.school.code,
           logo_url: student.school.logo_url,
-          primary_color: student.school.primary_color || '#4f46e5'
+          primary_color: student.school.primary_color || '#0047AB'
         } : null
       };
 
@@ -293,7 +293,7 @@ class StudentController extends BaseController {
           name: student.school.school_name,
           code: student.school.code,
           logo_url: student.school.logo_url,
-          primary_color: student.school.primary_color || '#4f46e5',
+          primary_color: student.school.primary_color || '#0047AB',
           package: student.school.package ? {
             id: student.school.package.id,
             code: student.school.package.code,
@@ -412,7 +412,7 @@ class StudentController extends BaseController {
           name: student.school.school_name,
           code: student.school.code,
           logo_url: student.school.logo_url,
-          primary_color: student.school.primary_color || '#4f46e5',
+          primary_color: student.school.primary_color || '#0047AB',
           package: student.school.package ? {
             id: student.school.package.id,
             code: student.school.package.code,
@@ -514,7 +514,7 @@ class StudentController extends BaseController {
           name: student.school.school_name,
           code: student.school.code,
           logo_url: student.school.logo_url,
-          primary_color: student.school.primary_color || '#4f46e5',
+          primary_color: student.school.primary_color || '#0047AB',
           package: student.school.package ? {
             id: student.school.package.id,
             code: student.school.package.code,

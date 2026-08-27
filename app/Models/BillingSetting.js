@@ -7,6 +7,12 @@ const BillingSetting = sequelize.define('BillingSetting', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    allowNull: false,
+    unique: true
+  },
   base_fee_monthly: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,

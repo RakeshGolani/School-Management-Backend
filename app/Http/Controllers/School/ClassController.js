@@ -119,7 +119,7 @@ class ClassController extends BaseController {
       const { id } = req.params;
       const { class_name, section, class_teacher_id, room_number, capacity, status } = req.body;
 
-      const schoolClass = await SchoolClass.findByPk(id);
+      const schoolClass = await this.findByUuidOrPk(SchoolClass, id);
       if (!schoolClass) {
         return this.sendError(res, 'Class record not found', null, 404);
       }
@@ -133,7 +133,7 @@ class ClassController extends BaseController {
         status: status || schoolClass.status
       });
 
-      const updatedClass = await SchoolClass.findByPk(id, {
+      const updatedClass = await this.findByUuidOrPk(SchoolClass, id, {
         include: [{ model: Teacher, as: 'classTeacher', attributes: ['id', 'name', 'email'] }]
       });
 
@@ -150,7 +150,7 @@ class ClassController extends BaseController {
   async show(req, res) {
     try {
       const { id } = req.params;
-      const schoolClass = await SchoolClass.findByPk(id, {
+      const schoolClass = await this.findByUuidOrPk(SchoolClass, id, {
         include: [
           {
             model: Teacher,
@@ -236,12 +236,12 @@ class ClassController extends BaseController {
       const { id } = req.params;
       const { student_id } = req.body;
 
-      const schoolClass = await SchoolClass.findByPk(id);
+      const schoolClass = await this.findByUuidOrPk(SchoolClass, id);
       if (!schoolClass) {
         return this.sendError(res, 'Class record not found', null, 404);
       }
 
-      const student = await Student.findByPk(student_id);
+      const student = await this.findByUuidOrPk(Student, student_id);
       if (!student) {
         return this.sendError(res, 'Student record not found', null, 404);
       }
@@ -265,11 +265,10 @@ class ClassController extends BaseController {
   async unassignStudent(req, res) {
     try {
       const { id, studentId } = req.params;
-      const student = await Student.findOne({
-        where: { id: studentId, class_id: id }
-      });
+      const schoolClass = await this.findByUuidOrPk(SchoolClass, id);
+      const student = await this.findByUuidOrPk(Student, studentId);
 
-      if (!student) {
+      if (!student || !schoolClass || student.class_id !== schoolClass.id) {
         return this.sendError(res, 'Student record not found in this class', null, 404);
       }
 
@@ -287,7 +286,7 @@ class ClassController extends BaseController {
   async destroy(req, res) {
     try {
       const { id } = req.params;
-      const schoolClass = await SchoolClass.findByPk(id);
+      const schoolClass = await this.findByUuidOrPk(SchoolClass, id);
 
       if (!schoolClass) {
         return this.sendError(res, 'Class record not found', null, 404);

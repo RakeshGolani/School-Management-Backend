@@ -192,7 +192,7 @@ class SchoolLeaveController extends BaseController {
         return this.sendError(res, "Review status must be either 'APPROVED' or 'REJECTED'.", 400);
       }
 
-      const leave = await StudentLeave.findByPk(id, {
+      const leave = await this.findByUuidOrPk(StudentLeave, id, {
         include: [
           { model: Student, as: 'student' },
           { model: SchoolClass, as: 'schoolClass' }

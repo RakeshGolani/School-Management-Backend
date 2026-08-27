@@ -44,7 +44,7 @@ class AdminPackageController {
   static async show(req, res) {
     try {
       const { id } = req.params;
-      const pkg = await Package.findByPk(id);
+      const pkg = await this.findByUuidOrPk(Package, id);
 
       if (!pkg) {
         return res.status(404).json({
@@ -80,7 +80,7 @@ class AdminPackageController {
       const { id } = req.params;
       const { name, description, icon, badge_color, modules, is_active, sort_order } = req.body;
 
-      const pkg = await Package.findByPk(id);
+      const pkg = await this.findByUuidOrPk(Package, id);
       if (!pkg) {
         return res.status(404).json({
           success: false,
