@@ -17,6 +17,7 @@ class AdminTeacherController extends BaseController {
     this.store = this.store.bind(this);
     this.update = this.update.bind(this);
     this.destroy = this.destroy.bind(this);
+    this.toggleStatus = this.toggleStatus.bind(this);
   }
 
   /**
@@ -30,9 +31,21 @@ class AdminTeacherController extends BaseController {
       const offset = (pageNum - 1) * limitNum;
 
       const whereClause = {};
-      if (schoolId) whereClause.school_id = schoolId;
-      if (status) whereClause.status = status;
-      if (subject && subject !== 'all') whereClause.subject = { [Op.like]: `%${subject}%` };
+      if (schoolId && schoolId !== 'all' && schoolId !== '') {
+        const isUuid = typeof schoolId === 'string' && schoolId.includes('-');
+        if (isUuid) {
+          const sch = await School.findOne({ where: { uuid: schoolId } });
+          if (sch) whereClause.school_id = sch.id;
+        } else {
+          whereClause.school_id = parseInt(schoolId, 10);
+        }
+      }
+      if (status && status !== 'all' && status !== '') {
+        whereClause.status = status;
+      }
+      if (subject && subject !== 'all' && subject !== '') {
+        whereClause.subject = { [Op.like]: `%${subject}%` };
+      }
       if (search) {
         const trimmedSearch = search.trim();
         whereClause[Op.or] = [
@@ -67,6 +80,7 @@ class AdminTeacherController extends BaseController {
 
       const totalPages = Math.ceil(count / limitNum);
       return res.status(200).json({
+        success: true,
         status: 'success',
         message: 'Teachers retrieved successfully',
         data: TeacherResource.collection(teachers),
@@ -187,7 +201,10 @@ class AdminTeacherController extends BaseController {
       }
 
       await teacher.save();
-      return this.sendResponse(res, new TeacherResource(teacher).toJson(), 'Teacher updated successfully');
+      const fullTeacher = await this.findByUuidOrPk(Teacher, teacher.id, {
+        include: [{ model: School, as: 'school' }]
+      });
+      return this.sendResponse(res, new TeacherResource(fullTeacher || teacher).toJson(), 'Teacher updated successfully');
     } catch (error) {
       if (req.file) removeFile(req.file);
       return this.sendError(res, error.message, 500);
@@ -205,6 +222,32 @@ class AdminTeacherController extends BaseController {
       if (teacher.photo) removeFile(teacher.photo);
       await teacher.destroy();
       return this.sendResponse(res, null, 'Teacher deleted successfully');
+    } catch (error) {
+      return this.sendError(res, error.message, 500);
+    }
+  }
+
+  /**
+   * Toggle teacher status
+   */
+  async toggleStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const teacher = await this.findByUuidOrPk(Teacher, id);
+      if (!teacher) {
+        return this.sendError(res, 'Teacher not found', 404);
+      }
+
+      teacher.status = status || (teacher.status === 'active' ? 'inactive' : 'active');
+      await teacher.save();
+
+      return this.sendResponse(
+        res,
+        new TeacherResource(teacher).toJson(),
+        `Teacher status changed to ${teacher.status}`
+      );
     } catch (error) {
       return this.sendError(res, error.message, 500);
     }

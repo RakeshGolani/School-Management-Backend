@@ -1,5 +1,5 @@
 const BaseController = require('../BaseController');
-const { Student, BusRoute, BusStop, Parent, SchoolSubscription, SchoolClass, Teacher } = require('../../../Models');
+const { School, Student, BusRoute, BusStop, Parent, SchoolSubscription, SchoolClass, Teacher } = require('../../../Models');
 const { Op, where, fn, col } = require('sequelize');
 const StudentResource = require('../../Resources/Student/StudentResource');
 const { removeFile } = require('../../../../utils/UploadUtils');
@@ -81,6 +81,7 @@ class AdminStudentController extends BaseController {
       const { count, rows: students } = await Student.findAndCountAll({
         where: whereClause,
         include: [
+          { model: School, as: 'school' },
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
           { model: Parent, as: 'parent' },
@@ -108,18 +109,19 @@ class AdminStudentController extends BaseController {
       });
     } catch (error) {
       console.error('Error fetching students:', error);
-      return this.sendError(res, 'Failed to fetch students: ' + error.message, 500);
+      return this.sendError(res, error.message, 500);
     }
   }
 
   /**
-   * Get single student profile
+   * Get single student details
    */
   async show(req, res) {
     try {
       const { id } = req.params;
       const student = await this.findByUuidOrPk(Student, id, {
         include: [
+          { model: School, as: 'school' },
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
           { model: Parent, as: 'parent' },
@@ -267,6 +269,7 @@ class AdminStudentController extends BaseController {
 
       const fullStudent = await Student.findByPk(student.id, {
         include: [
+          { model: School, as: 'school' },
           { model: BusRoute, as: 'busRoute' },
           { model: BusStop, as: 'busStop' },
           { model: Parent, as: 'parent' },

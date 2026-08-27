@@ -96,6 +96,17 @@ class StudentResource extends BaseResource {
         id: this.resource.busStop.id,
         stopName: this.resource.busStop.stop_name
       } : null,
+      school: this.resource.school ? {
+        id: this.resource.school.id,
+        uuid: this.resource.school.uuid,
+        code: this.resource.school.code,
+        schoolName: this.resource.school.school_name,
+        school_name: this.resource.school.school_name,
+        email: this.resource.school.email,
+        phone: this.resource.school.phone,
+        logo: this.resource.school.logo,
+        logo_url: this.resource.school.logo_url
+      } : null,
       status: this.resource.status || 'active',
       createdAt: this.resource.createdAt
     };

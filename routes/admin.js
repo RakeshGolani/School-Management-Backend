@@ -56,6 +56,7 @@ router.get('/teachers', AdminTeacherController.index);
 router.get('/teachers/:id', AdminTeacherController.show);
 router.post('/teachers', uploadTeacherPhoto, StoreTeacherRequest.rules(), AdminTeacherController.store);
 router.put('/teachers/:id', uploadTeacherPhoto, UpdateTeacherRequest.rules(), AdminTeacherController.update);
+router.put('/teachers/:id/status', AdminTeacherController.toggleStatus);
 router.delete('/teachers/:id', AdminTeacherController.destroy);
 
 // --- Global SaaS Billing Settings ---
