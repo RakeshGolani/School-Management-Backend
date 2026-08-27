@@ -7,5 +7,6 @@ const CommonController = require('../app/Http/Controllers/CommonController');
 router.put('/status', CommonController.updateStatus);
 router.delete('/delete', CommonController.deleteEntity);
 router.get('/system-settings', CommonController.getSystemSettings);
+router.post('/inquiries', CommonController.submitInquiry);
 
 module.exports = router;

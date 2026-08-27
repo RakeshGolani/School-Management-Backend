@@ -48,12 +48,16 @@ class StudentController extends BaseController {
             { guardian_phone: { [Op.like]: `%${cleanPhone.slice(-10)}` } },
             { alternate_phone: { [Op.like]: `%${cleanPhone.slice(-10)}` } }
           ]
-        }
+        },
+        include: [{ model: School, as: 'school' }]
       });
 
       if (!student) {
-        return this.sendError(res, 'No student record found with this mobile number.', 404);
+        return this.sendError(res, 'No student record found with this mobile number.', null, 404);
       }
+
+      if (!this.validateAccountStatus(res, student, 'Student profile')) return;
+      if (!this.validateSchoolStatus(res, student.school)) return;
 
       const generatedOtp = '123456';
       studentOtpStore.set(cleanPhone.slice(-10), {
@@ -129,9 +133,8 @@ class StudentController extends BaseController {
         ]
       });
 
-      if (!student) {
-        return this.sendError(res, 'Student profile not found.', 404);
-      }
+      if (!this.validateAccountStatus(res, student, 'Student profile')) return;
+      if (!this.validateSchoolStatus(res, student.school)) return;
 
       const studentData = {
         id: student.id,
@@ -239,17 +242,8 @@ class StudentController extends BaseController {
         ]
       });
 
-      if (!student) {
-        return this.sendError(res, 'Invalid credentials: Student account not found.', 401);
-      }
-
-      if (student.status !== 'active') {
-        return this.sendError(res, `Your student account is currently ${student.status}. Please contact the school.`, 403);
-      }
-
-      if (student.school && student.school.status !== 'active') {
-        return this.sendError(res, 'School account is inactive. Please contact support.', 403);
-      }
+      if (!this.validateAccountStatus(res, student, 'Student account')) return;
+      if (!this.validateSchoolStatus(res, student.school)) return;
 
       let isMatch = false;
       if (student.parent && student.parent.password) {

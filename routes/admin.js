@@ -88,4 +88,12 @@ router.get('/packages', AdminPackageController.index);
 router.get('/packages/:id', AdminPackageController.show);
 router.put('/packages/:id', AdminPackageController.update);
 
+// --- Inquiries & Demo Leads Management ---
+const AdminInquiryController = require('../app/Http/Controllers/Admin/AdminInquiryController');
+router.get('/inquiries', AdminInquiryController.index);
+router.get('/inquiries/:id', AdminInquiryController.show);
+router.put('/inquiries/:id/status', AdminInquiryController.updateStatus);
+router.put('/inquiries/:id/notes', AdminInquiryController.updateNotes);
+router.delete('/inquiries/:id', AdminInquiryController.destroy);
+
 module.exports = router;

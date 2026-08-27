@@ -1,7 +1,8 @@
 const { SubscriptionTransaction, School, SchoolSubscription, SchoolInvoice } = require('../../../Models');
+const BaseController = require('../BaseController');
 const { Op } = require('sequelize');
 
-class AdminTransactionController {
+class AdminTransactionController extends BaseController {
   // Get list of subscription transactions
   async index(req, res) {
     try {
@@ -40,7 +41,7 @@ class AdminTransactionController {
           {
             model: School,
             as: 'school',
-            attributes: ['id', 'code', 'school_name', 'email', 'phone', 'address'],
+            attributes: ['id', 'uuid', 'code', 'school_name', 'email', 'phone', 'address'],
             where: Object.keys(schoolWhere).length > 0 ? schoolWhere : undefined
           },
           {
@@ -58,23 +59,30 @@ class AdminTransactionController {
         offset: parseInt(offset)
       });
 
-      // Overall Summary Statistics
-      const totalRevenue = await SubscriptionTransaction.sum('amount', { where: { status: 'success' } }) || 0;
-      const totalSuccess = await SubscriptionTransaction.count({ where: { status: 'success' } });
-      const totalPending = await SubscriptionTransaction.count({ where: { status: 'pending' } });
-      const totalFailed = await SubscriptionTransaction.count({ where: { status: 'failed' } });
+      // Calculate aggregated metrics
+      const allTxns = await SubscriptionTransaction.findAll({
+        attributes: ['amount', 'status']
+      });
+
+      const totalRevenue = allTxns
+        .filter(t => t.status === 'success')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+      const totalSuccess = allTxns.filter(t => t.status === 'success').length;
+      const totalPending = allTxns.filter(t => t.status === 'pending').length;
+      const totalFailed = allTxns.filter(t => t.status === 'failed').length;
 
       return res.status(200).json({
         success: true,
         data: transactions,
-        meta: {
+        pagination: {
           total: count,
           page: parseInt(page),
           limit: parseInt(limit),
           totalPages: Math.ceil(count / parseInt(limit))
         },
         stats: {
-          totalRevenue: parseFloat(totalRevenue).toFixed(2),
+          totalRevenue: totalRevenue.toFixed(2),
           totalSuccess,
           totalPending,
           totalFailed
@@ -95,7 +103,7 @@ class AdminTransactionController {
     try {
       const { id } = req.params;
 
-      const transaction = await this.findByUuidOrPk(SubscriptionTransaction, id, {
+      const transaction = await AdminTransactionController.findByUuidOrPk(SubscriptionTransaction, id, {
         include: [
           {
             model: School,

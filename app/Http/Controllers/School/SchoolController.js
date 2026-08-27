@@ -126,13 +126,10 @@ class SchoolController extends BaseController {
       });
 
       if (!school) {
-        return this.sendError(res, 'Invalid credentials: School account not found.', 401);
+        return this.sendError(res, 'Invalid credentials: School account not found.', null, 401);
       }
 
-      // Check if school portal access is active
-      if (school.status !== 'active') {
-        return this.sendError(res, 'Your school portal access has been disabled by the Super Admin. Please contact support.', 403);
-      }
+      if (!this.validateSchoolStatus(res, school)) return;
 
       // Verify bcrypt password
       const isMatch = await bcrypt.compare(password, school.password);

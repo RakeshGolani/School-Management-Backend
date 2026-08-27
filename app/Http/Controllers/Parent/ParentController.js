@@ -60,28 +60,39 @@ class ParentController extends BaseController {
         return this.sendError(res, 'Valid 10-digit mobile number is required.', 400);
       }
 
-      // Check if Parent or Student guardian with this phone exists
+      // Check if Parent exists with linked children and schools
       const parent = await Parent.findOne({
         where: {
           phone: {
             [Op.like]: `%${cleanPhone.slice(-10)}`
           }
-        }
+        },
+        include: [
+          {
+            model: Student,
+            as: 'children',
+            include: [{ model: School, as: 'school' }]
+          }
+        ]
       });
 
       // Also check student guardian phone if not found in parent table
-      const student = !parent ? await Student.findOne({
+      const students = !parent ? await Student.findAll({
         where: {
           [Op.or]: [
             { guardian_phone: { [Op.like]: `%${cleanPhone.slice(-10)}` } },
             { alternate_phone: { [Op.like]: `%${cleanPhone.slice(-10)}` } }
           ]
-        }
-      }) : null;
+        },
+        include: [{ model: School, as: 'school' }]
+      }) : (parent.children || []);
 
-      if (!parent && !student) {
-        return this.sendError(res, 'No student or parent found registered with this mobile number.', 404);
+      if ((!parent && students.length === 0) || (parent && students.length === 0)) {
+        return this.sendError(res, 'No student or parent found registered with this mobile number.', null, 404);
       }
+
+      // Check if associated school is active before generating and sending OTP!
+      if (!this.validateParentSchoolStatus(res, students)) return;
 
       // Generate 6-digit OTP (Default '123456' in dev mode for easy testing)
       const generatedOtp = '123456';
@@ -218,6 +229,8 @@ class ParentController extends BaseController {
         parent.children = students;
       }
 
+      if (!this.validateParentSchoolStatus(res, parent.children)) return;
+
       const formattedChildren = (parent.children || []).map(child => ({
         id: child.id,
         school_id: child.school_id,
@@ -345,6 +358,8 @@ class ParentController extends BaseController {
       if (!isMatch) {
         return this.sendError(res, 'Invalid credentials: Incorrect password.', 401);
       }
+
+      if (!this.validateParentSchoolStatus(res, parent.children)) return;
 
       const formattedChildren = (parent.children || []).map(child => ({
         id: child.id,

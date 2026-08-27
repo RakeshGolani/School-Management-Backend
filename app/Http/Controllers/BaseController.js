@@ -30,6 +30,10 @@ class BaseController {
    * Helper to build Sequelize where clause for UUID or integer PK
    */
   resolveIdWhere(identifier) {
+    return BaseController.resolveIdWhere(identifier);
+  }
+
+  static resolveIdWhere(identifier) {
     if (!identifier) return {};
     const isUuid = typeof identifier === 'string' && identifier.includes('-');
     if (isUuid || isNaN(identifier)) {
@@ -48,6 +52,10 @@ class BaseController {
    * Find model instance by UUID or PK
    */
   async findByUuidOrPk(Model, identifier, options = {}) {
+    return await BaseController.findByUuidOrPk(Model, identifier, options);
+  }
+
+  static async findByUuidOrPk(Model, identifier, options = {}) {
     if (!identifier) return null;
     const isUuid = typeof identifier === 'string' && identifier.includes('-');
     if (isUuid || isNaN(identifier)) {
@@ -66,6 +74,56 @@ class BaseController {
       },
       ...options
     });
+  }
+
+  /**
+   * Universal School Status Validator
+   * Checks if school is active; if not, responds with standardized 403 error.
+   * Returns true if active, or false (and sends response) if inactive/disabled.
+   */
+  validateSchoolStatus(res, school) {
+    if (!school) {
+      this.sendError(res, 'Associated school institution not found or inaccessible.', null, 404);
+      return false;
+    }
+    if (school.status !== 'active') {
+      const msg = school.status === 'pending'
+        ? 'Your school registration is currently pending Super Admin approval.'
+        : 'Your school portal access has been disabled by the Super Admin. Please contact support.';
+      this.sendError(res, msg, null, 403);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Universal User Account Status Validator
+   * Checks if an individual user account (Teacher, Student, etc.) is active.
+   */
+  validateAccountStatus(res, entity, entityName = 'Account') {
+    if (!entity) {
+      this.sendError(res, `Invalid credentials: ${entityName} not found.`, null, 404);
+      return false;
+    }
+    if (entity.status && entity.status !== 'active') {
+      this.sendError(res, `Your ${entityName.toLowerCase()} is currently ${entity.status}. Please contact the school administrator.`, null, 403);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Universal Parent School Status Validator
+   * Ensures at least one linked child belongs to an active school institution.
+   */
+  validateParentSchoolStatus(res, children = []) {
+    if (!children || children.length === 0) return true;
+    const hasActiveSchool = children.some(c => c.school && c.school.status === 'active');
+    if (!hasActiveSchool) {
+      this.sendError(res, 'Your school portal access has been disabled by the Super Admin. Please contact school administration.', null, 403);
+      return false;
+    }
+    return true;
   }
 }
 

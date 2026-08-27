@@ -69,6 +69,71 @@ class CommonController {
       });
     }
   }
+
+  static async submitInquiry(req, res) {
+    try {
+      const { Inquiry } = require('../../Models');
+      const { 
+        representative_name, 
+        representativeName, 
+        email, 
+        school_name, 
+        school, 
+        phone, 
+        module_interest, 
+        moduleInterest, 
+        message 
+      } = req.body;
+
+      const finalName = (representative_name || representativeName || '').trim();
+      const finalEmail = (email || '').trim().toLowerCase();
+      const finalSchool = (school_name || school || '').trim();
+      const finalPhone = (phone || '').trim();
+      const finalModule = module_interest || moduleInterest || 'full_suite';
+      const finalMessage = message ? String(message).trim() : null;
+
+      if (!finalName || !finalEmail || !finalSchool || !finalPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide representative name, email, school name, and phone number.'
+        });
+      }
+
+      // Basic email regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(finalEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address.'
+        });
+      }
+
+      const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.socket?.remoteAddress || req.ip || null;
+
+      const inquiry = await Inquiry.create({
+        representative_name: finalName,
+        email: finalEmail,
+        school_name: finalSchool,
+        phone: finalPhone,
+        module_interest: finalModule,
+        message: finalMessage,
+        status: 'PENDING',
+        ip_address: clientIp
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Thank you! Your demonstration request has been submitted successfully. Our team will contact you shortly.',
+        data: inquiry
+      });
+    } catch (error) {
+      console.error('CommonController submitInquiry Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to submit demonstration inquiry'
+      });
+    }
+  }
 }
 
 module.exports = CommonController;

@@ -4,6 +4,30 @@ const { SYSTEM_MODULES } = require('../../../../config/modules');
 
 class AdminPackageController {
   /**
+   * Helper to find model by UUID or Primary Key
+   */
+  static async findByUuidOrPk(Model, identifier, options = {}) {
+    if (!identifier) return null;
+    const isUuid = typeof identifier === 'string' && identifier.includes('-');
+    if (isUuid || isNaN(identifier)) {
+      return await Model.findOne({
+        where: { uuid: identifier },
+        ...options
+      });
+    }
+    const { Op } = require('sequelize');
+    return await Model.findOne({
+      where: {
+        [Op.or]: [
+          { uuid: identifier },
+          { id: parseInt(identifier, 10) }
+        ]
+      },
+      ...options
+    });
+  }
+
+  /**
    * List all packages with school counts
    */
   static async index(req, res) {
@@ -44,7 +68,7 @@ class AdminPackageController {
   static async show(req, res) {
     try {
       const { id } = req.params;
-      const pkg = await this.findByUuidOrPk(Package, id);
+      const pkg = await AdminPackageController.findByUuidOrPk(Package, id);
 
       if (!pkg) {
         return res.status(404).json({
@@ -53,7 +77,7 @@ class AdminPackageController {
         });
       }
 
-      const schoolsCount = await School.count({ where: { package_id: id } });
+      const schoolsCount = await School.count({ where: { package_id: pkg.id } });
       const data = pkg.toJSON();
       data.schools_count = schoolsCount;
 
@@ -80,7 +104,7 @@ class AdminPackageController {
       const { id } = req.params;
       const { name, description, icon, badge_color, modules, is_active, sort_order } = req.body;
 
-      const pkg = await this.findByUuidOrPk(Package, id);
+      const pkg = await AdminPackageController.findByUuidOrPk(Package, id);
       if (!pkg) {
         return res.status(404).json({
           success: false,

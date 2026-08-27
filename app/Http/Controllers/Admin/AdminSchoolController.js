@@ -34,6 +34,30 @@ function getDefaultAcademicYearData(schoolId) {
 
 class AdminSchoolController {
   
+  /**
+   * Helper to find model by UUID or Primary Key
+   */
+  static async findByUuidOrPk(Model, identifier, options = {}) {
+    if (!identifier) return null;
+    const isUuid = typeof identifier === 'string' && identifier.includes('-');
+    if (isUuid || isNaN(identifier)) {
+      return await Model.findOne({
+        where: { uuid: identifier },
+        ...options
+      });
+    }
+    const { Op } = require('sequelize');
+    return await Model.findOne({
+      where: {
+        [Op.or]: [
+          { uuid: identifier },
+          { id: parseInt(identifier, 10) }
+        ]
+      },
+      ...options
+    });
+  }
+
   // GET /api/admin/schools
   static async index(req, res) {
     try {
@@ -69,10 +93,11 @@ class AdminSchoolController {
         AcademicYear, 
         SchoolSubscription, 
         SubscriptionTransaction, 
-        SchoolInvoice 
+        SchoolInvoice,
+        Package
       } = require("../../../Models");
 
-      const school = await this.findByUuidOrPk(School, id, {
+      const school = await AdminSchoolController.findByUuidOrPk(School, id, {
         include: [
           {
             model: Package,
@@ -96,27 +121,27 @@ class AdminSchoolController {
 
       // Fetch Teachers for this school
       const teachers = await Teacher.findAll({
-        where: { school_id: id },
+        where: { school_id: school.id },
         order: [['createdAt', 'DESC']]
       });
 
       // Fetch Students for this school
       const students = await Student.findAll({
-        where: { school_id: id },
+        where: { school_id: school.id },
         include: [{ model: SchoolClass, as: 'schoolClass', attributes: ['id', 'class_name', 'section'] }],
         order: [['createdAt', 'DESC']]
       });
 
       // Fetch Classes for this school
       const classes = await SchoolClass.findAll({
-        where: { school_id: id },
+        where: { school_id: school.id },
         include: [{ model: Teacher, as: 'classTeacher', attributes: ['id', 'name', 'email'] }],
         order: [['class_name', 'ASC'], ['section', 'ASC']]
       });
 
       // Fetch Transactions & Invoices for this school
       const transactions = await SubscriptionTransaction.findAll({
-        where: { school_id: id },
+        where: { school_id: school.id },
         include: [{ model: SchoolInvoice, as: 'invoice' }],
         order: [['createdAt', 'DESC']]
       });
@@ -239,7 +264,7 @@ class AdminSchoolController {
       const { id } = req.params;
       const { school_name, code, email, password, phone, address, latitude, longitude, primary_color, background_color, logo, package_id } = req.body;
 
-      const school = await this.findByUuidOrPk(School, id);
+      const school = await AdminSchoolController.findByUuidOrPk(School, id);
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
       }
@@ -285,7 +310,7 @@ class AdminSchoolController {
 
       await school.update(updateData);
 
-      const updatedSchool = await this.findByUuidOrPk(School, id, {
+      const updatedSchool = await AdminSchoolController.findByUuidOrPk(School, id, {
         include: [{ model: Package, as: 'package' }]
       });
 
@@ -304,7 +329,7 @@ class AdminSchoolController {
   static async destroy(req, res) {
     try {
       const { id } = req.params;
-      const school = await this.findByUuidOrPk(School, id);
+      const school = await AdminSchoolController.findByUuidOrPk(School, id);
       
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
@@ -328,7 +353,7 @@ class AdminSchoolController {
       const { id } = req.params;
       const { status } = req.body;
       
-      const school = await this.findByUuidOrPk(School, id);
+      const school = await AdminSchoolController.findByUuidOrPk(School, id);
       
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
@@ -361,12 +386,12 @@ class AdminSchoolController {
         custom_discount_percent
       } = req.body;
 
-      const school = await this.findByUuidOrPk(School, id);
+      const school = await AdminSchoolController.findByUuidOrPk(School, id);
       if (!school) {
         return res.status(404).json({ success: false, message: 'School not found' });
       }
 
-      let subscription = await SchoolSubscription.findOne({ where: { school_id: id } });
+      let subscription = await SchoolSubscription.findOne({ where: { school_id: school.id } });
       if (!subscription) {
         return res.status(404).json({ success: false, message: 'Subscription not found for this school' });
       }

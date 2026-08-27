@@ -60,19 +60,8 @@ class TeacherController extends BaseController {
         ]
       });
 
-      if (!teacher) {
-        return this.sendError(res, 'Invalid credentials: Teacher account not found.', 401);
-      }
-
-      // Check teacher status
-      if (teacher.status !== 'active') {
-        return this.sendError(res, `Your teacher account is currently ${teacher.status}. Please contact the school administrator.`, 403);
-      }
-
-      // Check school portal status
-      if (teacher.school && teacher.school.status !== 'active') {
-        return this.sendError(res, 'School account is inactive. Please contact support.', 403);
-      }
+      if (!this.validateAccountStatus(res, teacher, 'Teacher account')) return;
+      if (!this.validateSchoolStatus(res, teacher.school)) return;
 
       // Verify bcrypt password
       let isMatch = await bcrypt.compare(password, teacher.password);

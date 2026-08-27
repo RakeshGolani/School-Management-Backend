@@ -22,6 +22,13 @@ const FeeCategory = require('./FeeCategory');
 const StudentFee = require('./StudentFee');
 const FeePayment = require('./FeePayment');
 const Package = require('./Package');
+const PeriodSlot = require('./PeriodSlot');
+const Timetable = require('./Timetable');
+const TeacherProxy = require('./TeacherProxy');
+const StudentLeave = require('./StudentLeave');
+const Notification = require('./Notification');
+const NotificationRead = require('./NotificationRead');
+const Inquiry = require('./Inquiry');
 
 // 0. Package - School Relationships
 Package.hasMany(School, { foreignKey: 'package_id', as: 'schools' });
@@ -147,11 +154,6 @@ StudentFee.belongsTo(FeeCategory, { foreignKey: 'fee_category_id', as: 'feeCateg
 StudentFee.hasMany(FeePayment, { foreignKey: 'student_fee_id', as: 'payments' });
 FeePayment.belongsTo(StudentFee, { foreignKey: 'student_fee_id', as: 'studentFee' });
 
-const PeriodSlot = require('./PeriodSlot');
-const Timetable = require('./Timetable');
-const TeacherProxy = require('./TeacherProxy');
-const StudentLeave = require('./StudentLeave');
-
 // 11. Timetable and Period Management Relationships
 School.hasMany(PeriodSlot, { foreignKey: 'school_id', as: 'periodSlots' });
 PeriodSlot.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
@@ -189,9 +191,6 @@ StudentLeave.belongsTo(Teacher, { foreignKey: 'teacher_id', as: 'teacher' });
 
 School.hasMany(StudentLeave, { foreignKey: 'school_id', as: 'studentLeaves' });
 StudentLeave.belongsTo(School, { foreignKey: 'school_id', as: 'school' });
-
-const Notification = require('./Notification');
-const NotificationRead = require('./NotificationRead');
 
 // 13. Notification Relationships
 School.hasMany(Notification, { foreignKey: 'school_id', as: 'notifications' });
@@ -233,7 +232,8 @@ module.exports = {
   TeacherProxy,
   StudentLeave,
   Notification,
-  NotificationRead
+  NotificationRead,
+  Inquiry
 };
 
 
