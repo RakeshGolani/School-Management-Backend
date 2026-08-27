@@ -22,8 +22,16 @@ const Package = sequelize.define('Package', {
     type: DataTypes.STRING(100),
     allowNull: false
   },
+  tagline: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   description: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  badge_text: {
+    type: DataTypes.STRING(100),
     allowNull: true
   },
   icon: {
@@ -35,6 +43,30 @@ const Package = sequelize.define('Package', {
     type: DataTypes.STRING(50),
     allowNull: true,
     defaultValue: 'indigo'
+  },
+  monthly_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00
+  },
+  annual_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00
+  },
+  currency: {
+    type: DataTypes.STRING(10),
+    allowNull: false,
+    defaultValue: 'INR'
+  },
+  currency_symbol: {
+    type: DataTypes.STRING(10),
+    allowNull: false,
+    defaultValue: '₹'
+  },
+  is_popular: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   modules: {
     type: DataTypes.JSON,

@@ -134,6 +134,52 @@ class CommonController {
       });
     }
   }
+
+  static async getPlans(req, res) {
+    try {
+      const { Package, PlanFeature } = require('../../Models');
+      const packages = await Package.findAll({
+        where: { is_active: true },
+        include: [
+          {
+            model: PlanFeature,
+            as: 'features',
+            where: { is_active: true },
+            required: false,
+            attributes: ['id', 'uuid', 'feature_text', 'sort_order', 'is_active']
+          }
+        ],
+        order: [
+          ['sort_order', 'ASC'],
+          ['id', 'ASC'],
+          [{ model: PlanFeature, as: 'features' }, 'sort_order', 'ASC']
+        ]
+      });
+
+      const plans = packages.map(p => {
+        const plain = p.toJSON();
+        if (Array.isArray(plain.features)) {
+          plain.features.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        }
+        return plain;
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Subscription plans retrieved successfully',
+        data: {
+          plans,
+          packages: plans
+        }
+      });
+    } catch (error) {
+      console.error('CommonController getPlans Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to retrieve plans'
+      });
+    }
+  }
 }
 
 module.exports = CommonController;

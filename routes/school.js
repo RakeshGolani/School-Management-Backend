@@ -157,6 +157,9 @@ router.post('/notifications/broadcast', SchoolNotificationController.broadcast);
 router.delete('/notifications/:id', SchoolNotificationController.destroy);
 
 // ===================== COMMON (SCHOOL PORTAL) =====================
+const CommonController = require('../app/Http/Controllers/CommonController');
+router.get('/plans', CommonController.getPlans);
+router.get('/packages', CommonController.getPlans);
 router.put('/common/status', SchoolCommonController.updateStatus);
 router.delete('/common/delete', SchoolCommonController.deleteEntity);
 

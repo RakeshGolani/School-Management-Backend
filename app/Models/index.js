@@ -22,6 +22,7 @@ const FeeCategory = require('./FeeCategory');
 const StudentFee = require('./StudentFee');
 const FeePayment = require('./FeePayment');
 const Package = require('./Package');
+const PlanFeature = require('./PlanFeature');
 const PeriodSlot = require('./PeriodSlot');
 const Timetable = require('./Timetable');
 const TeacherProxy = require('./TeacherProxy');
@@ -30,9 +31,12 @@ const Notification = require('./Notification');
 const NotificationRead = require('./NotificationRead');
 const Inquiry = require('./Inquiry');
 
-// 0. Package - School Relationships
+// 0. Package / Plan Relationships
 Package.hasMany(School, { foreignKey: 'package_id', as: 'schools' });
 School.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
+
+Package.hasMany(PlanFeature, { foreignKey: 'plan_id', as: 'features', onDelete: 'CASCADE' });
+PlanFeature.belongsTo(Package, { foreignKey: 'plan_id', as: 'plan' });
 
 // 1. Parent - Student Relationships
 Parent.hasMany(Student, { foreignKey: 'parent_id', as: 'children' });
@@ -206,6 +210,8 @@ module.exports = {
   sequelize,
   School,
   Package,
+  Plan: Package,
+  PlanFeature,
   Admin,
   Teacher,
   Parent,

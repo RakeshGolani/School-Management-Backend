@@ -7,7 +7,9 @@ const {
   SystemSetting,
   Student,
   Bus,
-  School
+  School,
+  Package,
+  PlanFeature
 } = require('../../../Models');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
@@ -28,6 +30,24 @@ class SubscriptionController extends BaseController {
     this.getDetails = this.getDetails.bind(this);
     this.createCheckoutSession = this.createCheckoutSession.bind(this);
     this.webhook = this.webhook.bind(this);
+    this.resolveSchool = this.resolveSchool.bind(this);
+  }
+
+  /**
+   * Helper to resolve School model from UUID or primary key integer
+   */
+  async resolveSchool(identifier) {
+    if (!identifier) return null;
+    const isUuid = typeof identifier === 'string' && identifier.includes('-');
+    if (isUuid) {
+      return await School.findOne({ where: { uuid: identifier } });
+    }
+    const parsedId = parseInt(identifier, 10);
+    if (!isNaN(parsedId)) {
+      const school = await School.findByPk(parsedId);
+      if (school) return school;
+    }
+    return await School.findOne({ where: { uuid: identifier } });
   }
 
   /**
@@ -35,10 +55,16 @@ class SubscriptionController extends BaseController {
    */
   async getDetails(req, res) {
     try {
-      const schoolId = req.headers['x-school-id'] || req.query.schoolId;
-      if (!schoolId) {
+      const rawSchoolId = req.headers['x-school-id'] || req.query.schoolId;
+      if (!rawSchoolId) {
         return this.sendError(res, 'School ID is required', 400);
       }
+
+      const school = await this.resolveSchool(rawSchoolId);
+      if (!school) {
+        return this.sendError(res, 'School record not found', 404);
+      }
+      const schoolId = school.id;
 
       // 1. Get active subscription
       let subscription = await SchoolSubscription.findOne({
@@ -61,7 +87,75 @@ class SubscriptionController extends BaseController {
         });
       }
 
-      // 2. Count active usage
+      // 2. Fetch School's assigned Package & features
+      const schoolRecord = await School.findByPk(schoolId, {
+        include: [
+          {
+            model: Package,
+            as: 'package',
+            include: [
+              {
+                model: PlanFeature,
+                as: 'features',
+                where: { is_active: true },
+                required: false,
+                attributes: ['id', 'uuid', 'feature_text', 'sort_order', 'is_active']
+              }
+            ]
+          }
+        ]
+      });
+
+      let currentPackage = schoolRecord?.package || null;
+      if (!currentPackage) {
+        // Fallback to first active package (e.g. FULL_SUITE)
+        currentPackage = await Package.findOne({
+          where: { is_active: true },
+          order: [['sort_order', 'ASC']],
+          include: [
+            {
+              model: PlanFeature,
+              as: 'features',
+              where: { is_active: true },
+              required: false,
+              attributes: ['id', 'uuid', 'feature_text', 'sort_order', 'is_active']
+            }
+          ]
+        });
+      }
+
+      if (currentPackage) {
+        const plainPkg = currentPackage.toJSON ? currentPackage.toJSON() : currentPackage;
+        if (Array.isArray(plainPkg.features)) {
+          plainPkg.features.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        }
+        currentPackage = plainPkg;
+      }
+
+      // 3. Fetch all active packages for reference / upgrade options
+      const allPackagesRaw = await Package.findAll({
+        where: { is_active: true },
+        order: [['sort_order', 'ASC']],
+        include: [
+          {
+            model: PlanFeature,
+            as: 'features',
+            where: { is_active: true },
+            required: false,
+            attributes: ['id', 'uuid', 'feature_text', 'sort_order', 'is_active']
+          }
+        ]
+      });
+
+      const allPackages = allPackagesRaw.map(p => {
+        const plain = p.toJSON();
+        if (Array.isArray(plain.features)) {
+          plain.features.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        }
+        return plain;
+      });
+
+      // 4. Count active usage
       const activeStudentsCount = await Student.count({
         where: { school_id: schoolId, status: 'active' }
       });
@@ -70,11 +164,10 @@ class SubscriptionController extends BaseController {
       if (Bus.rawAttributes.school_id) {
         activeBusesCount = await Bus.count({ where: { school_id: schoolId } });
       } else {
-        // Fallback: count seeded buses or mock
         activeBusesCount = await Bus.count();
       }
 
-      // 3. Fetch past transactions & invoices
+      // 5. Fetch past transactions & invoices
       const transactions = await SubscriptionTransaction.findAll({
         where: { school_id: schoolId },
         include: [
@@ -96,13 +189,13 @@ class SubscriptionController extends BaseController {
         order: [['createdAt', 'DESC']]
       });
 
-      // 4. Fetch global pricing parameters
+      // 6. Fetch global pricing parameters
       let billingConfig = await BillingSetting.findOne();
       if (!billingConfig) {
         billingConfig = await BillingSetting.create({});
       }
 
-      // 5. Fetch system settings
+      // 7. Fetch system settings
       let systemSettings = await SystemSetting.findOne();
       if (!systemSettings) {
         systemSettings = await SystemSetting.create({});
@@ -110,6 +203,16 @@ class SubscriptionController extends BaseController {
 
       return this.sendResponse(res, {
         subscription,
+        currentPackage,
+        allPackages,
+        schoolInfo: {
+          id: school.id,
+          uuid: school.uuid,
+          school_name: school.school_name,
+          code: school.code,
+          email: school.email,
+          phone: school.phone
+        },
         usage: {
           students: {
             current: activeStudentsCount,
@@ -136,14 +239,24 @@ class SubscriptionController extends BaseController {
    * Create dynamic checkout checkout session / subscription transaction.
    * This is called when the school owner upgrades their limit.
    */
+  /**
+   * Create dynamic checkout session / subscription transaction.
+   * This is called when the school owner upgrades their limit or changes package.
+   */
   async createCheckoutSession(req, res) {
     try {
-      const schoolId = req.headers['x-school-id'] || req.query.schoolId;
-      const { plan_type, max_students_limit, max_buses_limit } = req.body;
+      const rawSchoolId = req.headers['x-school-id'] || req.query.schoolId;
+      const { plan_type, max_students_limit, max_buses_limit, package_code } = req.body;
 
-      if (!schoolId) {
+      if (!rawSchoolId) {
         return this.sendError(res, 'School ID is required', 400);
       }
+
+      const school = await this.resolveSchool(rawSchoolId);
+      if (!school) {
+        return this.sendError(res, 'School record not found.', 404);
+      }
+      const schoolId = school.id;
 
       const subscription = await SchoolSubscription.findOne({
         where: { school_id: schoolId }
@@ -153,20 +266,20 @@ class SubscriptionController extends BaseController {
         return this.sendError(res, 'Subscription record not found. Please reload.', 404);
       }
 
-      const school = await School.findByPk(schoolId);
-      if (!school) {
-        return this.sendError(res, 'School record not found.', 404);
-      }
-
       // Downgrade Block Check
       const activeStudentsCount = await Student.count({ where: { school_id: schoolId, status: 'active' } });
-      let activeBusesCount = 0;
-      if (Bus.rawAttributes.school_id) {
-        activeBusesCount = await Bus.count({ where: { school_id: schoolId } });
+      if (max_students_limit !== undefined && max_students_limit < activeStudentsCount) {
+        return this.sendError(res, `Cannot reduce student limit below currently active enrolled students (${activeStudentsCount}).`, 400);
       }
 
       if (max_buses_limit !== undefined && max_buses_limit < 0) {
         return this.sendError(res, `Invalid bus limit specified.`, 400);
+      }
+
+      // Fetch target package if selected
+      let targetPackage = null;
+      if (package_code) {
+        targetPackage = await Package.findOne({ where: { code: package_code } });
       }
 
       // Fetch global pricing settings
@@ -177,22 +290,35 @@ class SubscriptionController extends BaseController {
 
       // Calculate checkout pricing based on plan type and limits, applying custom overrides if present
       const isYearly = plan_type === 'yearly';
-      const baseFee = isYearly ? (subscription.custom_base_fee_yearly || config.base_fee_yearly) : (subscription.custom_base_fee_monthly || config.base_fee_monthly);
+      let baseFee = 0;
+      if (targetPackage) {
+        baseFee = isYearly ? Number(targetPackage.annual_price || 0) : Number(targetPackage.monthly_price || 0);
+      } else {
+        baseFee = isYearly ? (subscription.custom_base_fee_yearly || config.base_fee_yearly) : (subscription.custom_base_fee_monthly || config.base_fee_monthly);
+      }
+
       const studentFee = isYearly ? (subscription.custom_student_fee_yearly || config.student_fee_yearly) : (subscription.custom_student_fee_monthly || config.student_fee_monthly);
       const busFee = isYearly ? (subscription.custom_bus_fee_yearly || config.bus_fee_yearly) : (subscription.custom_bus_fee_monthly || config.bus_fee_monthly);
 
+      const studentsCount = Number(max_students_limit || subscription.max_students_limit || 50);
+      const busesCount = Number(max_buses_limit !== undefined ? max_buses_limit : (subscription.max_buses_limit || 5));
+
+      // Extra quota cost (above base 50 students / 5 buses)
+      const extraStudents = Math.max(0, studentsCount - 50);
+      const extraBuses = Math.max(0, busesCount - 5);
+
       const subtotal = Number(baseFee) + 
-                       (Number(studentFee) * max_students_limit) + 
-                       (Number(busFee) * max_buses_limit);
+                       (Number(studentFee) * extraStudents) + 
+                       (Number(busFee) * extraBuses);
       
       let discountAmount = 0;
-      if (isYearly) {
+      if (isYearly && !targetPackage) {
         const discountPercent = subscription.custom_discount_percent || config.yearly_discount_percent;
         discountAmount = (subtotal * Number(discountPercent)) / 100;
       }
 
-      const totalBeforeTax = subtotal - discountAmount;
-      const taxAmount = (totalBeforeTax * Number(config.tax_rate_percent)) / 100;
+      const totalBeforeTax = Math.max(0, subtotal - discountAmount);
+      const taxAmount = (totalBeforeTax * Number(config.tax_rate_percent || 18)) / 100;
       const finalAmount = totalBeforeTax + taxAmount;
 
       // Generate Razorpay Order or fallback to mock simulation order
@@ -240,8 +366,9 @@ class SubscriptionController extends BaseController {
           tax: taxAmount.toFixed(2),
           total: finalAmount.toFixed(2),
           plan_type,
-          max_students_limit,
-          max_buses_limit,
+          package_code: targetPackage?.code || null,
+          max_students_limit: studentsCount,
+          max_buses_limit: busesCount,
           razorpay_key: process.env.RAZORPAY_KEY_ID || '',
           order_id: orderId,
           is_mock: isMockOrder,
@@ -272,7 +399,8 @@ class SubscriptionController extends BaseController {
         status,
         max_students_limit,
         max_buses_limit,
-        plan_type
+        plan_type,
+        package_code
       } = req.body;
 
       let isSuccess = false;
@@ -336,6 +464,18 @@ class SubscriptionController extends BaseController {
           sub.starts_at = starts;
           sub.ends_at = ends;
           await sub.save();
+        }
+
+        // 3. Update School Package if upgraded
+        if (package_code) {
+          const targetPkg = await Package.findOne({ where: { code: package_code } });
+          if (targetPkg) {
+            const sch = await School.findByPk(txn.school_id);
+            if (sch) {
+              sch.package_id = targetPkg.id;
+              await sch.save();
+            }
+          }
         }
 
         // 3. Generate a beautiful dynamic PDF invoice reference

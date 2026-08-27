@@ -8,5 +8,7 @@ router.put('/status', CommonController.updateStatus);
 router.delete('/delete', CommonController.deleteEntity);
 router.get('/system-settings', CommonController.getSystemSettings);
 router.post('/inquiries', CommonController.submitInquiry);
+router.get('/plans', CommonController.getPlans);
+router.get('/packages', CommonController.getPlans);
 
 module.exports = router;

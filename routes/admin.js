@@ -83,11 +83,16 @@ router.delete('/sockets/logs', AdminSocketController.clearLogs);
 router.get('/system-settings', SystemSettingController.getSettings);
 router.put('/system-settings', uploadSystemLogo, SystemSettingController.updateSettings);
 
-// --- Packages Management ---
+// --- Packages & Modules Management ---
 const AdminPackageController = require('../app/Http/Controllers/Admin/AdminPackageController');
 router.get('/packages', AdminPackageController.index);
 router.get('/packages/:id', AdminPackageController.show);
 router.put('/packages/:id', AdminPackageController.update);
+
+// --- Subscription Plans & Pricing ---
+router.get('/plans', AdminPackageController.index);
+router.get('/plans/:id', AdminPackageController.show);
+router.put('/plans/:id', AdminPackageController.update);
 
 // --- Inquiries & Demo Leads Management ---
 const AdminInquiryController = require('../app/Http/Controllers/Admin/AdminInquiryController');
