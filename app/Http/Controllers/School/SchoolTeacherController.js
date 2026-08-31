@@ -60,7 +60,7 @@ class SchoolTeacherController extends BaseController {
   async index(req, res) {
     try {
       const { search, subject, status, schoolId, academic_year_id } = req.query;
-      const targetSchoolId = schoolId || req.headers['x-school-id'];
+      const targetSchoolId = await this.resolveSchoolId(schoolId || req.headers['x-school-id']);
 
       const pageNum = parseInt(req.query.page, 10) || 1;
       const limitNum = parseInt(req.query.limit, 10) || 10;
@@ -112,6 +112,7 @@ class SchoolTeacherController extends BaseController {
 
       const totalPages = Math.ceil(count / limitNum);
       return res.status(200).json({
+        success: true,
         status: 'success',
         message: 'Teachers retrieved successfully',
         data: TeacherResource.collection(teachers),
@@ -174,7 +175,7 @@ class SchoolTeacherController extends BaseController {
         schoolId
       } = req.body;
 
-      const targetSchoolId = school_id || schoolId || req.query.schoolId || req.headers['x-school-id'] || 1;
+      const targetSchoolId = await this.resolveSchoolId(school_id || schoolId || req.query.schoolId || req.headers['x-school-id']);
 
       // Check unique email
       const existingEmail = await Teacher.findOne({ where: { email }, transaction });

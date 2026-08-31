@@ -7,7 +7,7 @@ class AcademicYearController extends BaseController {
    */
   async index(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
 
       const academicYears = await AcademicYear.findAll({
         where: { school_id },
@@ -26,7 +26,7 @@ class AcademicYearController extends BaseController {
    */
   async getActive(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
 
       let activeYear = await AcademicYear.findOne({
         where: { school_id, is_active: true }

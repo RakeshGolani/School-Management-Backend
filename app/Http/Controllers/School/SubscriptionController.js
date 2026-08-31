@@ -276,10 +276,12 @@ class SubscriptionController extends BaseController {
         return this.sendError(res, `Invalid bus limit specified.`, 400);
       }
 
-      // Fetch target package if selected
+      // Fetch target package if selected or current school package
       let targetPackage = null;
       if (package_code) {
         targetPackage = await Package.findOne({ where: { code: package_code } });
+      } else if (school.package_id) {
+        targetPackage = await Package.findByPk(school.package_id);
       }
 
       // Fetch global pricing settings
@@ -292,20 +294,36 @@ class SubscriptionController extends BaseController {
       const isYearly = plan_type === 'yearly';
       let baseFee = 0;
       if (targetPackage) {
-        baseFee = isYearly ? Number(targetPackage.annual_price || 0) : Number(targetPackage.monthly_price || 0);
+        if (isYearly) {
+          const annualRate = Number(targetPackage.annual_price || 0);
+          baseFee = (annualRate > 0 && annualRate < 15000) ? (annualRate * 12) : (annualRate || (Number(config.base_fee_yearly || 7999) * 12));
+        } else {
+          baseFee = Number(targetPackage.monthly_price || config.base_fee_monthly || 0);
+        }
       } else {
         baseFee = isYearly ? (subscription.custom_base_fee_yearly || config.base_fee_yearly) : (subscription.custom_base_fee_monthly || config.base_fee_monthly);
       }
 
-      const studentFee = isYearly ? (subscription.custom_student_fee_yearly || config.student_fee_yearly) : (subscription.custom_student_fee_monthly || config.student_fee_monthly);
-      const busFee = isYearly ? (subscription.custom_bus_fee_yearly || config.bus_fee_yearly) : (subscription.custom_bus_fee_monthly || config.bus_fee_monthly);
+      const monthlyStudentFee = Number(subscription.custom_student_fee_monthly || config.student_fee_monthly || 10);
+      const monthlyBusFee = Number(subscription.custom_bus_fee_monthly || config.bus_fee_monthly || 100);
+
+      const studentFee = isYearly 
+        ? Number(subscription.custom_student_fee_yearly || config.student_fee_yearly || (monthlyStudentFee * 12)) 
+        : monthlyStudentFee;
+
+      const busFee = isYearly 
+        ? Number(subscription.custom_bus_fee_yearly || config.bus_fee_yearly || (monthlyBusFee * 12)) 
+        : monthlyBusFee;
 
       const studentsCount = Number(max_students_limit || subscription.max_students_limit || 50);
       const busesCount = Number(max_buses_limit !== undefined ? max_buses_limit : (subscription.max_buses_limit || 5));
 
-      // Extra quota cost (above base 50 students / 5 buses)
-      const extraStudents = Math.max(0, studentsCount - 50);
-      const extraBuses = Math.max(0, busesCount - 5);
+      // Dynamic Extra quota cost (above plan's base students / buses limit)
+      const baseStudents = targetPackage?.base_students_limit || 50;
+      const baseBuses = targetPackage?.base_buses_limit !== undefined ? targetPackage.base_buses_limit : 5;
+
+      const extraStudents = Math.max(0, studentsCount - baseStudents);
+      const extraBuses = Math.max(0, busesCount - baseBuses);
 
       const subtotal = Number(baseFee) + 
                        (Number(studentFee) * extraStudents) + 
@@ -319,7 +337,7 @@ class SubscriptionController extends BaseController {
 
       const totalBeforeTax = Math.max(0, subtotal - discountAmount);
       const taxAmount = (totalBeforeTax * Number(config.tax_rate_percent || 18)) / 100;
-      const finalAmount = totalBeforeTax + taxAmount;
+      const roundedTotal = Math.round(totalBeforeTax + taxAmount);
 
       // Generate Razorpay Order or fallback to mock simulation order
       let orderId = 'order_' + Math.random().toString(36).substr(2, 12);
@@ -330,7 +348,7 @@ class SubscriptionController extends BaseController {
             process.env.RAZORPAY_KEY_SECRET && 
             !process.env.RAZORPAY_KEY_ID.includes('placeholder')) {
           const options = {
-            amount: Math.round(finalAmount * 100), // Amount in paise
+            amount: roundedTotal * 100, // Exact rounded amount in paise (e.g. 1179900 = ₹11,799.00)
             currency: 'INR',
             receipt: 'rcpt_' + Math.random().toString(36).substr(2, 9)
           };
@@ -346,25 +364,17 @@ class SubscriptionController extends BaseController {
         isMockOrder = true;
       }
 
-      // Create a pending gateway transaction log
-      const txn = await SubscriptionTransaction.create({
-        school_id: schoolId,
-        subscription_id: subscription.id,
-        gateway_transaction_id: orderId,
-        amount: finalAmount.toFixed(2),
-        currency: 'INR',
-        status: 'pending',
-        payment_method: isMockOrder ? 'Simulation / Dev Gateway' : 'Razorpay',
-        payment_mode: 'online'
-      });
+      let systemSettings = await SystemSetting.findOne();
+      if (!systemSettings) {
+        systemSettings = await SystemSetting.create({});
+      }
 
       return this.sendResponse(res, {
-        transaction: txn,
         checkoutDetails: {
-          subtotal: subtotal.toFixed(2),
-          discount: discountAmount.toFixed(2),
-          tax: taxAmount.toFixed(2),
-          total: finalAmount.toFixed(2),
+          subtotal: Math.round(totalBeforeTax).toFixed(2),
+          discount: Math.round(discountAmount).toFixed(2),
+          tax: (roundedTotal - Math.round(totalBeforeTax)).toFixed(2),
+          total: roundedTotal.toFixed(2),
           plan_type,
           package_code: targetPackage?.code || null,
           max_students_limit: studentsCount,
@@ -372,9 +382,15 @@ class SubscriptionController extends BaseController {
           razorpay_key: process.env.RAZORPAY_KEY_ID || '',
           order_id: orderId,
           is_mock: isMockOrder,
+          // Super Admin Site Settings (Dynamic from system_settings)
+          merchant_name: systemSettings.company_name || 'Vidyadmin',
+          merchant_logo: systemSettings.logo_url || '',
+          // School Customer Details (Payer)
           school_name: school.school_name,
           school_email: school.email,
-          school_phone: school.phone || ''
+          school_phone: school.phone || '',
+          school_logo: school.logo_url || school.logo || '',
+          primary_color: school.primary_color || ''
         }
       }, 'Checkout session generated successfully');
 
@@ -386,17 +402,20 @@ class SubscriptionController extends BaseController {
 
   /**
    * Webhook handler to simulate payment gateway webhook callback.
-   * Handles Razorpay success verification via signature.
+   * Handles Razorpay success and failure verification after Razorpay returns response.
    */
   async webhook(req, res) {
     try {
+      const rawSchoolId = req.headers['x-school-id'] || req.query.schoolId;
       const { 
         razorpay_payment_id, 
         razorpay_order_id, 
         razorpay_signature,
-        // Mock fallback for dev mode
         gateway_transaction_id, 
         status,
+        amount,
+        error_code,
+        error_description,
         max_students_limit,
         max_buses_limit,
         plan_type,
@@ -420,32 +439,92 @@ class SubscriptionController extends BaseController {
           return this.sendError(res, 'Invalid payment signature', 400);
         }
       } else if (status === 'success') {
-        // Fallback for mock dev mode
+        // Dev / Simulation success mode
         isSuccess = true;
       }
 
-      const txn = await SubscriptionTransaction.findOne({
-        where: { gateway_transaction_id: txnId }
-      });
-
-      if (!txn) {
-        return this.sendError(res, 'Transaction reference not found', 404);
+      // Resolve school and subscription
+      let school = null;
+      if (rawSchoolId) {
+        school = await this.resolveSchool(rawSchoolId);
       }
 
-      if (txn.status === 'success') {
-        return this.sendResponse(res, txn, 'Transaction already processed');
+      let sub = null;
+      if (school) {
+        sub = await SchoolSubscription.findOne({ where: { school_id: school.id } });
       }
-
-      if (isSuccess) {
-        // 1. Update transaction log
-        txn.status = 'success';
-        if (razorpay_payment_id) {
-          txn.reference_number = razorpay_payment_id;
+      if (!sub) {
+        sub = await SchoolSubscription.findOne({ order: [['id', 'ASC']] });
+        if (sub && !school) {
+          school = await School.findByPk(sub.school_id);
         }
-        await txn.save();
+      }
 
-        // 2. Fetch parent subscription
-        const sub = await SchoolSubscription.findByPk(txn.subscription_id);
+      // Handle Failed Payment Response from Razorpay
+      if (status === 'failed' || !isSuccess) {
+        if (school && sub && txnId) {
+          await SubscriptionTransaction.findOrCreate({
+            where: { gateway_transaction_id: txnId },
+            defaults: {
+              school_id: school.id,
+              subscription_id: sub.id,
+              gateway_transaction_id: txnId,
+              amount: Number(amount || 0),
+              currency: 'INR',
+              status: 'failed',
+              payment_method: error_code ? `Razorpay (${error_code})` : 'Razorpay Failed',
+              payment_mode: 'online',
+              reference_number: error_description || 'Payment Declined / Cancelled'
+            }
+          });
+        }
+        return this.sendResponse(res, { status: 'failed' }, 'Payment failure recorded');
+      }
+
+      // Handle Successful Payment
+      if (isSuccess && txnId) {
+
+        let finalPaidAmount = Number(amount || 0);
+        if (finalPaidAmount <= 0) {
+          const config = await BillingSetting.findOne() || {};
+          const isYearly = plan_type === 'yearly';
+          const targetPkg = package_code ? await Package.findOne({ where: { code: package_code } }) : (school?.package_id ? await Package.findByPk(school.package_id) : null);
+          const rawAnnual = Number(targetPkg?.annual_price || config.base_fee_yearly || 7999);
+          const rawBaseFee = targetPkg 
+            ? (isYearly ? (rawAnnual < 15000 ? rawAnnual * 12 : rawAnnual) : Number(targetPkg.monthly_price || 9999))
+            : (isYearly ? (Number(config.base_fee_yearly || 7999) * 12) : Number(config.base_fee_monthly || 9999));
+          const extraS = Math.max(0, Number(max_students_limit || 50) - (targetPkg?.base_students_limit || 50));
+          const sRate = isYearly ? Number(config.student_fee_yearly || 120) : Number(config.student_fee_monthly || 10);
+          const subT = rawBaseFee + (extraS * sRate);
+          const taxAmt = (subT * 0.18);
+          finalPaidAmount = Math.round(subT + taxAmt);
+        }
+
+        const paymentRef = razorpay_payment_id || txnId;
+
+        // Create or update transaction record on successful response with actual Payment ID
+        let [txn, created] = await SubscriptionTransaction.findOrCreate({
+          where: { gateway_transaction_id: paymentRef },
+          defaults: {
+            school_id: school ? school.id : 1,
+            subscription_id: sub ? sub.id : 1,
+            gateway_transaction_id: paymentRef,
+            amount: finalPaidAmount,
+            currency: 'INR',
+            status: 'success',
+            payment_method: 'Razorpay',
+            payment_mode: 'online',
+            reference_number: paymentRef
+          }
+        });
+
+        if (!created && txn) {
+          txn.status = 'success';
+          txn.gateway_transaction_id = paymentRef;
+          txn.reference_number = paymentRef;
+          txn.amount = finalPaidAmount;
+          await txn.save();
+        }
 
         if (sub) {
           sub.status = 'active';
@@ -453,7 +532,6 @@ class SubscriptionController extends BaseController {
           if (max_buses_limit) sub.max_buses_limit = max_buses_limit;
           if (plan_type) sub.plan_type = plan_type;
 
-          // Option B: Reset Cycle. Set start date to today, end date to 30/365 days from today.
           const starts = new Date();
           const ends = new Date();
           if (sub.plan_type === 'yearly') {
@@ -479,18 +557,18 @@ class SubscriptionController extends BaseController {
         }
 
         // 3. Generate a beautiful dynamic PDF invoice reference
-        const invoiceNum = 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+        const invoiceNum = 'IW-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
         
         const invoice = await SchoolInvoice.create({
           school_id: txn.school_id,
           transaction_id: txn.id,
           invoice_number: invoiceNum,
           billing_date: new Date(),
-          amount_due: txn.amount,
-          amount_paid: txn.amount,
-          tax_amount: (txn.amount * 0.18).toFixed(2), // 18% dynamic tax representation
+          amount_due: finalPaidAmount,
+          amount_paid: finalPaidAmount,
+          tax_amount: (finalPaidAmount * 0.18 / 1.18).toFixed(2), // GST tax portion
           status: 'paid',
-          invoice_pdf_url: `/uploads/invoices/${invoiceNum}.pdf` // Mock file URL
+          invoice_pdf_url: `/uploads/invoices/${invoiceNum}.pdf`
         });
 
         return this.sendResponse(res, {

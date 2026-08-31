@@ -33,6 +33,24 @@ class BaseController {
     return BaseController.resolveIdWhere(identifier);
   }
 
+  async resolveSchoolId(identifier) {
+    return await BaseController.resolveSchoolId(identifier);
+  }
+
+  static async resolveSchoolId(identifier) {
+    if (!identifier) return 1;
+    if (typeof identifier === 'number') return identifier;
+    if (typeof identifier === 'string' && !identifier.includes('-') && !isNaN(identifier)) {
+      return parseInt(identifier, 10);
+    }
+    const { School } = require('../../Models');
+    const school = await School.findOne({
+      where: { uuid: identifier },
+      attributes: ['id']
+    });
+    return school ? school.id : 1;
+  }
+
   static resolveIdWhere(identifier) {
     if (!identifier) return {};
     const isUuid = typeof identifier === 'string' && identifier.includes('-');

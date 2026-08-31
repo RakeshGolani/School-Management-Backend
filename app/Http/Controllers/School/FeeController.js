@@ -17,7 +17,7 @@ class FeeController extends BaseController {
    */
   async getCategories(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { academic_year_id } = req.query;
 
       const whereClause = { school_id };
@@ -136,7 +136,7 @@ class FeeController extends BaseController {
    */
   async getAllocations(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { class_id, status, search, page = 1, limit = 10, academic_year_id } = req.query;
 
       const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -457,7 +457,7 @@ class FeeController extends BaseController {
    */
   async getPayments(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { payment_mode, search, page = 1, limit = 10, academic_year_id } = req.query;
 
       const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -539,7 +539,7 @@ class FeeController extends BaseController {
    */
   async getStats(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { academic_year_id } = req.query;
 
       const whereClause = { school_id };

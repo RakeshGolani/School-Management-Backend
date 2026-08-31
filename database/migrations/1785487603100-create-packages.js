@@ -42,6 +42,16 @@ module.exports = {
         allowNull: false,
         defaultValue: []
       },
+      base_students_limit: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 50
+      },
+      base_buses_limit: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 5
+      },
       is_active: {
         type: Sequelize.BOOLEAN,
         defaultValue: true

@@ -29,7 +29,7 @@ class SchoolStudentController extends BaseController {
   async index(req, res) {
     try {
       const { search, grade, is_bus, status, schoolId, academic_year_id } = req.query;
-      const targetSchoolId = schoolId || req.headers['x-school-id'];
+      const targetSchoolId = await this.resolveSchoolId(schoolId || req.headers['x-school-id']);
 
       const pageNum = parseInt(req.query.page, 10) || 1;
       const limitNum = parseInt(req.query.limit, 10) || 5;
@@ -101,6 +101,7 @@ class SchoolStudentController extends BaseController {
         });
 
         return res.status(200).json({
+          success: true,
           status: 'success',
           message: 'Students retrieved successfully',
           data: studentList,
@@ -162,6 +163,7 @@ class SchoolStudentController extends BaseController {
       });
 
       return res.status(200).json({
+        success: true,
         status: 'success',
         message: 'Students retrieved successfully',
         data: StudentResource.collection(students),
@@ -183,7 +185,7 @@ class SchoolStudentController extends BaseController {
    */
   async getSessionStudents(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { academic_year_id } = req.query;
 
       if (!academic_year_id) {
@@ -287,11 +289,11 @@ class SchoolStudentController extends BaseController {
         class_id
       } = req.body;
 
-      const targetSchoolId = school_id || schoolId || req.query.schoolId || req.headers['x-school-id'];
+      const targetSchoolId = await this.resolveSchoolId(school_id || schoolId || req.query.schoolId || req.headers['x-school-id']);
       if (!targetSchoolId) {
         await transaction.rollback();
         if (req.file) removeFile(req.file);
-        return this.sendError(res, 'School ID is required for student admission', 400);
+        return this.sendError(res, 'School ID is required for student admission', null, 400);
       }
 
       // Subscription limit check
@@ -633,8 +635,8 @@ class SchoolStudentController extends BaseController {
    */
   async getStudentSessions(req, res) {
     try {
-      const { academic_year_id, school_id } = req.query;
-      const targetSchoolId = school_id || req.headers['x-school-id'] || 1;
+      const { academic_year_id, school_id, schoolId } = req.query;
+      const targetSchoolId = await this.resolveSchoolId(school_id || schoolId || req.headers['x-school-id']);
 
       const whereClause = { school_id: targetSchoolId };
       if (academic_year_id) whereClause.academic_year_id = academic_year_id;

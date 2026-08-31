@@ -58,6 +58,22 @@ module.exports = {
       });
     }
 
+    if (!tableInfo.base_students_limit) {
+      await queryInterface.addColumn('packages', 'base_students_limit', {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 50
+      });
+    }
+
+    if (!tableInfo.base_buses_limit) {
+      await queryInterface.addColumn('packages', 'base_buses_limit', {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 5
+      });
+    }
+
     // 2. Create plan_features table
     await queryInterface.createTable('plan_features', {
       id: {

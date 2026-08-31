@@ -8,7 +8,7 @@ class ClassController extends BaseController {
    */
   async index(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || req.headers['x-school-id'] || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { search, status } = req.query;
 
       const whereClause = { school_id };

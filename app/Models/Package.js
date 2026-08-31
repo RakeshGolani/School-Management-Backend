@@ -68,6 +68,16 @@ const Package = sequelize.define('Package', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  base_students_limit: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 50
+  },
+  base_buses_limit: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 5
+  },
   modules: {
     type: DataTypes.JSON,
     allowNull: false,

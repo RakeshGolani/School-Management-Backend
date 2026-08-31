@@ -171,19 +171,19 @@ class SchoolController extends BaseController {
    */
   async profile(req, res) {
     try {
-      const { schoolId } = req.query;
-      const school = await School.findByPk(schoolId || 1, {
+      const schoolId = req.query.schoolId || req.headers['x-school-id'] || 1;
+      const school = await this.findByUuidOrPk(School, schoolId, {
         include: [{ model: Package, as: 'package' }]
       });
 
       if (!school) {
-        return this.sendError(res, 'School profile not found', 404);
+        return this.sendError(res, 'School profile not found', null, 404);
       }
 
       const schoolData = new SchoolResource(school).toJson();
       return this.sendResponse(res, schoolData, 'School profile retrieved successfully');
     } catch (error) {
-      return this.sendError(res, error.message, 500);
+      return this.sendError(res, error.message, null, 500);
     }
   }
 

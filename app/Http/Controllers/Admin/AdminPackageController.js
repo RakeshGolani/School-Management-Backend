@@ -147,6 +147,8 @@ class AdminPackageController {
         currency, 
         currency_symbol, 
         is_popular, 
+        base_students_limit,
+        base_buses_limit,
         modules, 
         is_active, 
         sort_order,
@@ -174,6 +176,8 @@ class AdminPackageController {
         currency: currency !== undefined ? currency : pkg.currency,
         currency_symbol: currency_symbol !== undefined ? currency_symbol : pkg.currency_symbol,
         is_popular: is_popular !== undefined ? is_popular : pkg.is_popular,
+        base_students_limit: base_students_limit !== undefined ? parseInt(base_students_limit, 10) : pkg.base_students_limit,
+        base_buses_limit: base_buses_limit !== undefined ? parseInt(base_buses_limit, 10) : pkg.base_buses_limit,
         modules: modules !== undefined ? modules : pkg.modules,
         is_active: is_active !== undefined ? is_active : pkg.is_active,
         sort_order: sort_order !== undefined ? parseInt(sort_order, 10) : pkg.sort_order

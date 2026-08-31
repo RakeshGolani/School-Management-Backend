@@ -8,15 +8,34 @@ async function SubscriptionCheckMiddleware(req, res, next) {
   try {
     const schoolId = req.headers['x-school-id'] || req.query.schoolId;
 
+    // Check if the request is for subscription renewal, checkout, payment, auth, or health check
+    const path = (req.originalUrl || req.path || '').toLowerCase();
+    if (
+      path.includes('/subscription') ||
+      path.includes('/billing') ||
+      path.includes('/auth') ||
+      path.includes('/health')
+    ) {
+      return next();
+    }
+
     // If no school context is present, proceed
     if (!schoolId) {
       return next();
     }
 
+    // Resolve School if UUID
+    const { School } = require('../../Models');
+    let resolvedSchoolId = schoolId;
+    if (typeof schoolId === 'string' && schoolId.includes('-')) {
+      const school = await School.findOne({ where: { uuid: schoolId } });
+      if (school) resolvedSchoolId = school.id;
+    }
+
     // Read active/trialing subscription for this school
     const subscription = await SchoolSubscription.findOne({
       where: {
-        school_id: schoolId
+        school_id: resolvedSchoolId
       }
     });
 
@@ -24,7 +43,7 @@ async function SubscriptionCheckMiddleware(req, res, next) {
     const now = new Date();
     const isActive = subscription && 
                      (subscription.status === 'active' || subscription.status === 'trialing') && 
-                     new Date(subscription.ends_at) > now;
+                     (!subscription.ends_at || new Date(subscription.ends_at) > now);
 
     if (!isActive) {
       // Allow read operations (GET) so school users can view dashboards and check invoices

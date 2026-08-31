@@ -31,7 +31,7 @@ class SchoolDashboardController extends BaseController {
 
   async getDashboardStats(req, res) {
     try {
-      const school_id = parseInt(req.user?.school_id || req.query.schoolId || req.headers['x-school-id'] || 1, 10);
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.query.schoolId || req.headers['x-school-id']);
       const { academic_year_id } = req.query;
 
       // 1. Resolve Academic Year
