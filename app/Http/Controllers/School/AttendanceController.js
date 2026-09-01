@@ -9,7 +9,7 @@ class AttendanceController extends BaseController {
    */
   async index(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.user?.id || 1);
       const { date, entity_type = 'STUDENT', class_id, class_name, section, academic_year_id } = req.query;
 
       const todayDate = new Date().toISOString().split('T')[0];
@@ -126,7 +126,7 @@ class AttendanceController extends BaseController {
         studentWhere.class_id = class_id;
       } else if (class_name && class_name !== 'all') {
         studentWhere[Op.or] = [
-          { class: { [Op.like]: `%${class_name}%` } },
+          { grade: { [Op.like]: `%${class_name}%` } },
           { '$schoolClass.class_name$': { [Op.like]: `%${class_name}%` } }
         ];
       }
@@ -205,7 +205,7 @@ class AttendanceController extends BaseController {
         else if (statusUpper === 'LATE') lateCount++;
         else if (statusUpper === 'LEAVE') leaveCount++;
 
-        const classNameDisplay = s.schoolClass ? s.schoolClass.class_name : (s.class || 'Class 10');
+        const classNameDisplay = s.schoolClass ? s.schoolClass.class_name : (s.grade || 'Class 10');
         const sectionDisplay = s.schoolClass ? s.schoolClass.section : (s.section || 'A');
 
         const ct = s.schoolClass?.classTeacher;
@@ -235,6 +235,8 @@ class AttendanceController extends BaseController {
           } : null,
           status: statusUpper.toLowerCase(),
           status_display: statusUpper,
+          is_marked: !!log,
+          marked_by: log?.marked_by || null,
           remarks: log?.remarks || (leave ? `Approved Leave: ${leave.reason}` : ''),
           leave_details: leave ? {
             leave_type: leave.leave_type || 'Casual Leave',
@@ -281,7 +283,7 @@ class AttendanceController extends BaseController {
   async saveBulk(req, res) {
     const transaction = await sequelize.transaction();
     try {
-      const school_id = req.user?.school_id || req.body.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.body.school_id || req.user?.id || 1);
       const { date, entity_type = 'STUDENT', class_name, section, records, academic_year_id } = req.body;
 
       const todayDate = new Date().toISOString().split('T')[0];
@@ -409,7 +411,7 @@ class AttendanceController extends BaseController {
    */
   async getSummary(req, res) {
     try {
-      const school_id = req.user?.school_id || req.query.school_id || 1;
+      const school_id = await this.resolveSchoolId(req.user?.school_id || req.query.school_id || req.user?.id || 1);
       const { date } = req.query;
 
       const targetDate = date || new Date().toISOString().split('T')[0];
@@ -417,7 +419,11 @@ class AttendanceController extends BaseController {
       // Student Counts
       const totalStudents = await Student.count({ where: { school_id } });
       const studentLogs = await AttendanceLog.findAll({
-        where: { school_id, date: targetDate, entity_type: 'STUDENT' }
+        where: {
+          school_id,
+          date: targetDate,
+          [Op.or]: [{ entity_type: 'STUDENT' }, { entity_type: null }]
+        }
       });
 
       let studentPresent = 0;
